@@ -117,5 +117,7 @@ if __name__ == '__main__':
         pipeline = ReforestationPipeline()
         pipeline.run()
         print("✅ Pipeline complete. Starting web server...")
+    else:
+        print("✅ ML pipeline results found. Starting web server...")
 
     app.run(debug=True, host='0.0.0.0', port=5000)

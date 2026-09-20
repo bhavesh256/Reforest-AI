@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0a0e17;
-  --color-card: #111827;
-  --color-card-hover: #1f2937;
+  --color-background: #060910;
+  --color-card: #0f1524;
+  --color-card-hover: #172138;
   --color-primary: #00e676;
   --color-secondary: #00bfa5;
   --color-danger: #ff5252;
   --color-warning: #ffc107;
-  --color-text-main: #e8edf5;
-  --color-text-muted: #8b97b0;
+  --color-text-main: #f0f4fc;
+  --color-text-muted: #94a3b8;
   
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
 }
 
 @layer base {
@@ -45,48 +45,53 @@
 
   /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
   ::-webkit-scrollbar-track {
     background: var(--color-background);
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.25);
   }
 }
 
 @layer components {
   .glass-panel {
-    background-color: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background-color: rgba(15, 21, 36, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
   
   .badge-critical {
-    background-color: rgba(255, 82, 82, 0.12);
+    background-color: rgba(255, 82, 82, 0.15);
     color: var(--color-danger);
-    border: 1px solid rgba(255, 82, 82, 0.25);
+    border: 1px solid rgba(255, 82, 82, 0.3);
+    box-shadow: 0 0 10px rgba(255, 82, 82, 0.1);
   }
   .badge-high {
-    background-color: rgba(255, 193, 7, 0.12);
+    background-color: rgba(255, 193, 7, 0.15);
     color: var(--color-warning);
-    border: 1px solid rgba(255, 193, 7, 0.25);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.1);
   }
   .badge-moderate {
-    background-color: rgba(68, 138, 255, 0.12);
-    color: #60a5fa;
-    border: 1px solid rgba(68, 138, 255, 0.25);
+    background-color: rgba(68, 138, 255, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(68, 138, 255, 0.3);
+    box-shadow: 0 0 10px rgba(68, 138, 255, 0.1);
   }
   .badge-low {
-    background-color: rgba(0, 230, 118, 0.12);
+    background-color: rgba(0, 230, 118, 0.15);
     color: var(--color-primary);
-    border: 1px solid rgba(0, 230, 118, 0.25);
+    border: 1px solid rgba(0, 230, 118, 0.3);
+    box-shadow: 0 0 10px rgba(0, 230, 118, 0.1);
   }
 }
 
@@ -94,15 +99,17 @@
 .spotlight-card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.75rem;
-  background-color: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: border-color 0.3s ease, transform 0.2s ease;
+  border-radius: 1rem;
+  background-color: rgba(15, 21, 36, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .spotlight-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
 .spotlight-card::before {
@@ -113,8 +120,8 @@
   right: 0;
   bottom: 0;
   background: radial-gradient(
-    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    var(--glow-color, rgba(0, 230, 118, 0.06)),
+    800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    var(--glow-color, rgba(0, 230, 118, 0.08)),
     transparent 40%
   );
   z-index: 0;
@@ -137,7 +144,61 @@
   background: radial-gradient(ellipse at center, var(--tw-gradient-from), var(--tw-gradient-to));
 }
 
-/* Table hover */
+/* Table styles */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+table th {
+  position: sticky;
+  top: 0;
+  background-color: rgba(15, 21, 36, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
 table tbody tr {
-  transition: background-color 0.15s ease;
+  transition: all 0.2s ease;
+}
+
+table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  transform: scale(1.005);
+}
+
+/* Glow effects */
+.glow-text {
+  text-shadow: 0 0 20px rgba(0, 230, 118, 0.4);
+}
+
+.glow-danger {
+  text-shadow: 0 0 20px rgba(255, 82, 82, 0.4);
+}
+
+/* Floating animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 7s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* Pulse border */
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+}
+
+.pulse-primary {
+  animation: pulse-border 2s infinite;
 }

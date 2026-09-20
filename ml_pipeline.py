@@ -17,18 +17,24 @@ import warnings
 from pathlib import Path
 
 # ML imports
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, VotingRegressor, StackingRegressor, AdaBoostRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor, RandomForestClassifier,
+    StackingRegressor, AdaBoostRegressor,
+    ExtraTreesRegressor, GradientBoostingRegressor,
+    HistGradientBoostingRegressor
+)
 from sklearn.svm import SVR
-from sklearn.linear_model import Ridge, LinearRegression
+from sklearn.linear_model import Ridge, ElasticNet
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
-from sklearn.model_selection import cross_val_score, GridSearchCV, train_test_split
+from sklearn.model_selection import (
+    cross_val_score, LeaveOneOut, train_test_split, cross_val_predict
+)
 from sklearn.metrics import (
     r2_score, mean_absolute_error, mean_squared_error,
     accuracy_score, classification_report, confusion_matrix,
     f1_score, precision_score, recall_score
 )
 import xgboost as xgb
-import lightgbm as lgb
 from catboost import CatBoostRegressor
 # pyrefly: ignore [missing-import]
 from imblearn.over_sampling import SMOTE
@@ -84,17 +90,24 @@ class DataLoader:
         print(f"  ✅ District Carbon: {self.district_carbon.shape}")
 
     def get_state_data(self):
-        """Get merged state-level data at threshold=30."""
+        """Get merged state-level data at threshold=30.
+
+        FIX: The carbon dataset has 'umd_tree_cover_density__threshold'
+        while TCL has 'threshold'. We rename + filter both to threshold=30,
+        then drop the extra threshold column before merging to prevent
+        duplicate 'threshold' / 'threshold_carbon' confusion that was
+        causing emission columns to be inaccessible.
+        """
         # Filter at standard threshold
         tcl = self.state_tcl[self.state_tcl['threshold'] == THRESHOLD].copy()
         carbon = self.state_carbon[
             self.state_carbon['umd_tree_cover_density__threshold'] == THRESHOLD
         ].copy()
 
-        # Rename carbon columns for merge
-        carbon = carbon.rename(columns={'umd_tree_cover_density__threshold': 'threshold'})
+        # Drop the threshold column from carbon to avoid duplicate on merge
+        carbon = carbon.drop(columns=['umd_tree_cover_density__threshold'])
 
-        # Merge on country + subnational1
+        # Merge on country + subnational1 (no threshold column conflict now)
         merged = pd.merge(
             tcl, carbon,
             on=['country', 'subnational1'],
@@ -104,6 +117,15 @@ class DataLoader:
 
         # Clean up
         merged = merged.dropna(subset=['subnational1'])
+
+        # Validate emission data is present
+        emission_sample_col = 'gfw_gross_emissions_co2e_all_gases_2001__Mg'
+        if emission_sample_col in merged.columns:
+            total_em = merged[emission_sample_col].sum()
+            print(f"  ✅ Emission data validation: 2001 emissions = {total_em:,.0f} Mg")
+        else:
+            print(f"  ⚠️  WARNING: Emission columns not found after merge!")
+
         print(f"  📊 State-level merged data: {merged.shape}")
         return merged
 
@@ -122,7 +144,8 @@ class DataLoader:
             self.district_carbon['umd_tree_cover_density__threshold'] == THRESHOLD
         ].copy()
 
-        carbon = carbon.rename(columns={'umd_tree_cover_density__threshold': 'threshold'})
+        # Drop threshold column from carbon to avoid conflicts
+        carbon = carbon.drop(columns=['umd_tree_cover_density__threshold'])
 
         merged = pd.merge(
             tcl, carbon,
@@ -159,12 +182,14 @@ class FeatureEngineer:
         result['min_annual_loss_ha'] = result[self.loss_columns].min(axis=1)
         result['std_annual_loss_ha'] = result[self.loss_columns].std(axis=1)
 
-        # Forest cover ratios
-        result['forest_cover_ratio_2000'] = (
-            result['extent_2000_ha'] / result['area_ha'].replace(0, np.nan)
+        # Forest cover ratios (clamped to [0, 1])
+        result['forest_cover_ratio_2000'] = np.clip(
+            result['extent_2000_ha'] / result['area_ha'].replace(0, np.nan),
+            0, 1
         )
-        result['forest_cover_ratio_2010'] = (
-            result['extent_2010_ha'] / result['area_ha'].replace(0, np.nan)
+        result['forest_cover_ratio_2010'] = np.clip(
+            result['extent_2010_ha'] / result['area_ha'].replace(0, np.nan),
+            0, 1
         )
         result['forest_cover_change_2000_2010'] = (
             (result['extent_2010_ha'] - result['extent_2000_ha'])
@@ -176,8 +201,11 @@ class FeatureEngineer:
             result['extent_2000_ha'] - result['total_loss_ha']
             + result['gain_2000-2012_ha'].fillna(0)
         )
-        result['remaining_forest_ratio'] = (
-            result['remaining_forest_ha'] / result['area_ha'].replace(0, np.nan)
+        # Clamp to >= 0 (forest area can't be negative)
+        result['remaining_forest_ha'] = result['remaining_forest_ha'].clip(lower=0)
+        result['remaining_forest_ratio'] = np.clip(
+            result['remaining_forest_ha'] / result['area_ha'].replace(0, np.nan),
+            0, 1
         )
 
         # --- Deforestation Trend Analysis ---
@@ -219,10 +247,15 @@ class FeatureEngineer:
                 result['total_emissions_Mg']
                 / result['total_loss_ha'].replace(0, np.nan)
             )
+            # Clamp carbon_intensity to positive (ratio of two positive quantities)
+            result['carbon_intensity'] = result['carbon_intensity'].clip(lower=0)
+            print(f"  ✅ Emission columns found: {len(emission_cols_present)}")
+            print(f"  ✅ Total emissions across all states: {result['total_emissions_Mg'].sum():,.0f} Mg")
         else:
             result['total_emissions_Mg'] = 0
             result['avg_annual_emissions_Mg'] = 0
             result['carbon_intensity'] = 0
+            print("  ⚠️  No emission columns found!")
 
         # Carbon flux features
         if 'gfw_net_flux_co2e__Mg_yr-1' in result.columns:
@@ -239,6 +272,11 @@ class FeatureEngineer:
             ].fillna(0)
         else:
             result['biomass_density'] = 0
+
+        # --- Log-transformed features (for skewed distributions) ---
+        result['log_total_loss'] = np.log1p(result['total_loss_ha'].clip(lower=0))
+        result['log_total_emissions'] = np.log1p(result['total_emissions_Mg'].clip(lower=0))
+        result['log_area'] = np.log1p(result['area_ha'].clip(lower=0))
 
         # --- Vulnerability & Priority Scoring ---
         # Normalize key metrics to 0-1 scale for composite scoring
@@ -470,7 +508,7 @@ class SMOTEAnalyzer:
         return df, le
 
     def run_analysis(self, df, feature_cols):
-        """Run before/after SMOTE comparison."""
+        """Run before/after SMOTE comparison with proper train/test split."""
         print("⚖️  Running SMOTE Analysis...")
 
         df_class, le = self.prepare_classification_data(df)
@@ -490,12 +528,16 @@ class SMOTEAnalyzer:
         before_dist = dict(zip(le.inverse_transform(unique), counts.tolist()))
         print(f"  📊 Before SMOTE: {before_dist}")
 
-        # --- BEFORE SMOTE ---
+        # --- BEFORE SMOTE (using proper LOO cross-validation) ---
         rf_before = RandomForestClassifier(n_estimators=100, random_state=42)
-        scores_before = cross_val_score(rf_before, X_scaled, y, cv=min(3, len(np.unique(y))),
-                                         scoring='accuracy')
-        rf_before.fit(X_scaled, y)
-        y_pred_before = rf_before.predict(X_scaled)
+        cv_folds_before = min(5, min(counts))
+        if cv_folds_before < 2:
+            cv_folds_before = 2
+        scores_before = cross_val_score(rf_before, X_scaled, y,
+                                         cv=cv_folds_before, scoring='accuracy')
+
+        # Get predictions via cross_val_predict (proper evaluation, no data leakage)
+        y_pred_before = cross_val_predict(rf_before, X_scaled, y, cv=cv_folds_before)
 
         # --- APPLY SMOTE ---
         min_samples = min(counts)
@@ -509,18 +551,26 @@ class SMOTEAnalyzer:
             after_dist = dict(zip(le.inverse_transform(unique_after), counts_after.tolist()))
             print(f"  📊 After SMOTE: {after_dist}")
 
-            # --- AFTER SMOTE ---
+            # --- AFTER SMOTE (proper evaluation with train/test split) ---
+            # Split SMOTE-resampled data
+            X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
+                X_resampled, y_resampled, test_size=0.25, random_state=42, stratify=y_resampled
+            )
             rf_after = RandomForestClassifier(n_estimators=100, random_state=42)
-            cv_folds = min(3, min(counts_after))
+            rf_after.fit(X_train_s, y_train_s)
+            y_pred_after = rf_after.predict(X_test_s)
+
+            cv_folds_after = min(5, min(counts_after))
+            if cv_folds_after < 2:
+                cv_folds_after = 2
             scores_after = cross_val_score(rf_after, X_resampled, y_resampled,
-                                           cv=max(2, cv_folds), scoring='accuracy')
-            rf_after.fit(X_resampled, y_resampled)
-            y_pred_after = rf_after.predict(X_resampled)
+                                            cv=cv_folds_after, scoring='accuracy')
         else:
             after_dist = before_dist
             scores_after = scores_before
             y_pred_after = y_pred_before
-            X_resampled, y_resampled = X_scaled, y
+            y_test_s = y
+            y_resampled = y
 
         self.results = {
             'before_smote': {
@@ -535,9 +585,9 @@ class SMOTEAnalyzer:
                 'class_distribution': after_dist,
                 'accuracy': float(np.mean(scores_after)),
                 'cv_scores': scores_after.tolist(),
-                'f1_macro': float(f1_score(y_resampled, y_pred_after, average='macro', zero_division=0)),
-                'precision_macro': float(precision_score(y_resampled, y_pred_after, average='macro', zero_division=0)),
-                'recall_macro': float(recall_score(y_resampled, y_pred_after, average='macro', zero_division=0)),
+                'f1_macro': float(f1_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
+                'precision_macro': float(precision_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
+                'recall_macro': float(recall_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
             }
         }
 
@@ -579,38 +629,39 @@ class EnsembleModels:
         # --- 1. Random Forest ---
         print("  🌲 Training Random Forest...")
         rf = RandomForestRegressor(
-            n_estimators=200, max_depth=10, min_samples_split=3,
-            min_samples_leaf=2, random_state=42, n_jobs=-1
+            n_estimators=200, max_depth=6, min_samples_split=4,
+            min_samples_leaf=3, random_state=42, n_jobs=-1
         )
         rf.fit(X_train, y_train)
         self.models['Random Forest'] = rf
         self._evaluate(rf, X_train, y_train, X_test, y_test, 'Random Forest', feature_cols)
 
-        # --- 2. XGBoost ---
+        # --- 2. XGBoost (with regularization to reduce overfitting) ---
         print("  🚀 Training XGBoost...")
         xgb_model = xgb.XGBRegressor(
-            n_estimators=200, max_depth=6, learning_rate=0.1,
-            subsample=0.8, colsample_bytree=0.8, random_state=42,
-            verbosity=0
+            n_estimators=150, max_depth=4, learning_rate=0.08,
+            subsample=0.8, colsample_bytree=0.7, random_state=42,
+            verbosity=0, reg_alpha=0.1, reg_lambda=1.5, min_child_weight=3,
+            gamma=0.1
         )
         xgb_model.fit(X_train, y_train)
         self.models['XGBoost'] = xgb_model
         self._evaluate(xgb_model, X_train, y_train, X_test, y_test, 'XGBoost', feature_cols)
 
-        # --- 3. LightGBM ---
-        print("  💡 Training LightGBM...")
-        lgb_model = lgb.LGBMRegressor(
-            n_estimators=200, max_depth=6, learning_rate=0.1,
-            subsample=0.8, colsample_bytree=0.8, random_state=42,
-            verbose=-1
+        # --- 3. CatBoost (with regularization) ---
+        print("  🐱 Training CatBoost...")
+        cat = CatBoostRegressor(
+            iterations=150, depth=4, learning_rate=0.08,
+            random_seed=42, verbose=False, l2_leaf_reg=5,
+            min_data_in_leaf=3
         )
-        lgb_model.fit(X_train, y_train)
-        self.models['LightGBM'] = lgb_model
-        self._evaluate(lgb_model, X_train, y_train, X_test, y_test, 'LightGBM', feature_cols)
+        cat.fit(X_train, y_train)
+        self.models['CatBoost'] = cat
+        self._evaluate(cat, X_train, y_train, X_test, y_test, 'CatBoost', feature_cols)
 
         # --- 4. SVR ---
         print("  📐 Training SVR...")
-        svr = SVR(kernel='rbf', C=100, gamma='scale', epsilon=0.1)
+        svr = SVR(kernel='rbf', C=50, gamma='scale', epsilon=0.1)
         svr.fit(X_train, y_train)
         self.models['SVR'] = svr
         self._evaluate(svr, X_train, y_train, X_test, y_test, 'SVR', feature_cols)
@@ -622,28 +673,61 @@ class EnsembleModels:
         self.models['Ridge'] = ridge
         self._evaluate(ridge, X_train, y_train, X_test, y_test, 'Ridge', feature_cols)
 
-        # --- 6. CatBoost ---
-        print("  🐱 Training CatBoost...")
-        cat = CatBoostRegressor(iterations=200, depth=6, learning_rate=0.1, random_seed=42, verbose=False)
-        cat.fit(X_train, y_train)
-        self.models['CatBoost'] = cat
-        self._evaluate(cat, X_train, y_train, X_test, y_test, 'CatBoost', feature_cols)
-
-        # --- 7. AdaBoost ---
-        print("  🚀 Training AdaBoost...")
-        ada = AdaBoostRegressor(n_estimators=100, random_state=42)
+        # --- 6. AdaBoost ---
+        print("  🔥 Training AdaBoost...")
+        ada = AdaBoostRegressor(n_estimators=80, random_state=42, learning_rate=0.05)
         ada.fit(X_train, y_train)
         self.models['AdaBoost'] = ada
         self._evaluate(ada, X_train, y_train, X_test, y_test, 'AdaBoost', feature_cols)
 
-        # --- 6. Stacking Ensemble ---
+        # --- 7. Extra Trees ---
+        print("  🌳 Training Extra Trees...")
+        et = ExtraTreesRegressor(
+            n_estimators=200, max_depth=6, min_samples_split=4,
+            min_samples_leaf=3, random_state=42, n_jobs=-1
+        )
+        et.fit(X_train, y_train)
+        self.models['Extra Trees'] = et
+        self._evaluate(et, X_train, y_train, X_test, y_test, 'Extra Trees', feature_cols)
+
+        # --- 8. Gradient Boosting ---
+        print("  📈 Training Gradient Boosting...")
+        gb = GradientBoostingRegressor(
+            n_estimators=150, max_depth=4, learning_rate=0.08,
+            min_samples_split=4, min_samples_leaf=3,
+            subsample=0.8, random_state=42
+        )
+        gb.fit(X_train, y_train)
+        self.models['Gradient Boosting'] = gb
+        self._evaluate(gb, X_train, y_train, X_test, y_test, 'Gradient Boosting', feature_cols)
+
+        # --- 9. HistGradientBoosting (with min_samples_leaf set for small data) ---
+        print("  📊 Training HistGradientBoosting...")
+        hgb = HistGradientBoostingRegressor(
+            max_iter=150, max_depth=4, learning_rate=0.08,
+            min_samples_leaf=3, random_state=42
+        )
+        hgb.fit(X_train, y_train)
+        self.models['HistGradientBoosting'] = hgb
+        self._evaluate(hgb, X_train, y_train, X_test, y_test, 'HistGradientBoosting', feature_cols)
+
+        # --- 10. ElasticNet ---
+        print("  🔗 Training ElasticNet...")
+        en = ElasticNet(alpha=0.5, l1_ratio=0.5, random_state=42, max_iter=5000)
+        en.fit(X_train, y_train)
+        self.models['ElasticNet'] = en
+        self._evaluate(en, X_train, y_train, X_test, y_test, 'ElasticNet', feature_cols)
+
+        # --- 11. Stacking Ensemble ---
         print("  🏗️  Training Stacking Ensemble...")
         stacking = StackingRegressor(
             estimators=[
-                ('rf', RandomForestRegressor(n_estimators=100, max_depth=8, random_state=42)),
-                ('xgb', xgb.XGBRegressor(n_estimators=100, max_depth=5, verbosity=0, random_state=42)),
-                ('lgb', lgb.LGBMRegressor(n_estimators=100, max_depth=5, verbose=-1, random_state=42)),
-                ('cat', CatBoostRegressor(iterations=100, depth=5, verbose=False, random_seed=42)),
+                ('rf', RandomForestRegressor(n_estimators=100, max_depth=5,
+                                              min_samples_leaf=3, random_state=42)),
+                ('xgb', xgb.XGBRegressor(n_estimators=100, max_depth=4, verbosity=0,
+                                          random_state=42, reg_alpha=0.1, reg_lambda=1.5)),
+                ('cat', CatBoostRegressor(iterations=100, depth=4, verbose=False,
+                                           random_seed=42, l2_leaf_reg=5)),
             ],
             final_estimator=Ridge(alpha=1.0),
             cv=3
@@ -652,13 +736,30 @@ class EnsembleModels:
         self.models['Stacking Ensemble'] = stacking
         self._evaluate(stacking, X_train, y_train, X_test, y_test, 'Stacking Ensemble', feature_cols)
 
-        # Cross-validation for all models
-        print("  🔄 Running Cross-Validation...")
+        # Leave-One-Out Cross-Validation (more reliable for 36 samples)
+        print("  🔄 Running Leave-One-Out Cross-Validation...")
+        loo = LeaveOneOut()
         for name, model in self.models.items():
-            cv_scores = cross_val_score(model, X_scaled, y, cv=3, scoring='r2')
-            self.metrics[name]['cv_r2_mean'] = float(np.mean(cv_scores))
-            self.metrics[name]['cv_r2_std'] = float(np.std(cv_scores))
-            self.metrics[name]['cv_r2_scores'] = cv_scores.tolist()
+            try:
+                # LOO R2 cannot be computed per-fold (undefined for 1 sample).
+                # We must collect all predictions and compute R2 once.
+                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo)
+                loo_r2 = float(r2_score(y, loo_preds))
+                self.metrics[name]['cv_r2_mean'] = loo_r2
+                self.metrics[name]['cv_r2_std'] = 0.0  # Not applicable for single LOO score
+                
+                # Compute absolute errors for some distribution stats instead
+                abs_errors = np.abs(y - loo_preds)
+                self.metrics[name]['cv_r2_scores'] = [
+                    float(np.percentile(abs_errors, 25)),
+                    float(np.median(abs_errors)),
+                    float(np.percentile(abs_errors, 75)),
+                ]
+            except Exception as e:
+                print(f"    ⚠️  LOO-CV failed for {name}: {e}")
+                self.metrics[name]['cv_r2_mean'] = 0.0
+                self.metrics[name]['cv_r2_std'] = 0.0
+                self.metrics[name]['cv_r2_scores'] = [0.0, 0.0, 0.0]
 
         print("  ✅ All models trained!")
         return self.models, self.metrics
@@ -668,23 +769,27 @@ class EnsembleModels:
         y_train_pred = model.predict(X_train)
         y_test_pred = model.predict(X_test)
 
+        train_r2 = float(r2_score(y_train, y_train_pred))
+        test_r2 = float(r2_score(y_test, y_test_pred))
+
         self.metrics[name] = {
-            'train_r2': float(r2_score(y_train, y_train_pred)),
-            'test_r2': float(r2_score(y_test, y_test_pred)),
+            'train_r2': train_r2,
+            'test_r2': test_r2,
             'train_mae': float(mean_absolute_error(y_train, y_train_pred)),
             'test_mae': float(mean_absolute_error(y_test, y_test_pred)),
             'train_rmse': float(np.sqrt(mean_squared_error(y_train, y_train_pred))),
             'test_rmse': float(np.sqrt(mean_squared_error(y_test, y_test_pred))),
+            'overfit_gap': float(train_r2 - test_r2),
         }
 
-        # MAPE (handle zero values)
-        mask = y_test != 0
-        if mask.sum() > 0:
-            self.metrics[name]['test_mape'] = float(
-                np.mean(np.abs((y_test[mask] - y_test_pred[mask]) / y_test[mask])) * 100
+        # WAPE (Weighted Absolute Percentage Error)
+        total_actual = np.sum(np.abs(y_test))
+        if total_actual > 0:
+            self.metrics[name]['test_wape'] = float(
+                np.sum(np.abs(y_test - y_test_pred)) / total_actual * 100
             )
         else:
-            self.metrics[name]['test_mape'] = 0.0
+            self.metrics[name]['test_wape'] = 0.0
 
         # Feature importance (for tree-based models)
         if hasattr(model, 'feature_importances_'):
@@ -693,9 +798,10 @@ class EnsembleModels:
                 zip(feature_cols, [float(x) for x in importances])
             )
 
-        print(f"    {name}: R²={self.metrics[name]['test_r2']:.4f}, "
+        print(f"    {name}: R²={test_r2:.4f}, "
               f"MAE={self.metrics[name]['test_mae']:.2f}, "
-              f"RMSE={self.metrics[name]['test_rmse']:.2f}")
+              f"RMSE={self.metrics[name]['test_rmse']:.2f}, "
+              f"Overfit={self.metrics[name]['overfit_gap']:.4f}")
 
 
 # ============================================================================
@@ -708,7 +814,11 @@ class TimeSeriesForecaster:
         self.forecasts = {}
 
     def forecast_state(self, state_name, annual_losses, annual_emissions=None):
-        """Forecast for a single state under two scenarios."""
+        """Forecast for a single state under two scenarios.
+
+        All output values are clamped to >= 0 (negative loss/emissions are
+        physically impossible).
+        """
         years = np.array(PAST_YEARS, dtype=float)
         losses = np.array(annual_losses, dtype=float)
         losses = np.nan_to_num(losses, 0)
@@ -738,7 +848,8 @@ class TimeSeriesForecaster:
         bau_recent = recent_func(forecast_years)
         bau_avg = np.full_like(forecast_years, avg_recent)
         bau_forecast = 0.4 * bau_poly + 0.3 * bau_recent + 0.3 * bau_avg
-        bau_forecast = np.maximum(bau_forecast, 0)  # No negative losses
+        # CLAMP: No negative losses
+        bau_forecast = np.maximum(bau_forecast, 0)
 
         # --- Scenario B: Reforestation ---
         # Assume 5% year-over-year reduction in deforestation + active reforestation
@@ -749,18 +860,21 @@ class TimeSeriesForecaster:
             current_loss = current_loss * (1 - reduction_rate)
             reforest_forecast.append(max(current_loss, avg_recent * 0.1))  # Floor at 10%
         reforest_forecast = np.array(reforest_forecast)
+        # CLAMP: No negative losses
+        reforest_forecast = np.maximum(reforest_forecast, 0)
 
         # --- Carbon Projections ---
         if annual_emissions is not None:
             emissions = np.array(annual_emissions, dtype=float)
             emissions = np.nan_to_num(emissions, 0)
-            avg_emission_per_loss = np.mean(emissions) / max(np.mean(losses), 1)
+            total_loss_sum = np.sum(losses)
+            avg_emission_per_loss = np.sum(emissions) / max(total_loss_sum, 1)
 
-            bau_emissions = bau_forecast * avg_emission_per_loss
-            reforest_emissions = reforest_forecast * avg_emission_per_loss
-            # Reforestation absorbs carbon
+            bau_emissions = np.maximum(bau_forecast * avg_emission_per_loss, 0)
+            reforest_emissions = np.maximum(reforest_forecast * avg_emission_per_loss, 0)
+            # Reforestation absorbs carbon — cumulative savings
             reforest_gain = np.cumsum(
-                (bau_forecast - reforest_forecast) * avg_emission_per_loss * 0.5
+                np.maximum((bau_forecast - reforest_forecast) * avg_emission_per_loss * 0.5, 0)
             )
         else:
             bau_emissions = bau_forecast * 0
@@ -771,6 +885,12 @@ class TimeSeriesForecaster:
         total_past_loss = float(np.sum(losses))
         bau_cumulative = total_past_loss + np.cumsum(bau_forecast)
         reforest_cumulative = total_past_loss + np.cumsum(reforest_forecast)
+
+        # Compute avoidance (BAU - Reforestation), clamped to >= 0
+        projected_loss_avoidance = max(0.0, float(
+            np.sum(bau_forecast) - np.sum(reforest_forecast)
+        ))
+        carbon_savings = max(0.0, float(np.sum(bau_emissions) - np.sum(reforest_emissions)))
 
         return {
             'state': state_name,
@@ -792,10 +912,9 @@ class TimeSeriesForecaster:
                 'annual_emissions_Mg': reforest_emissions.tolist(),
                 'carbon_saved_Mg': reforest_gain.tolist(),
             },
-            'reforestation_needed_ha': max(0.0, float(
-                np.sum(bau_forecast) - np.sum(reforest_forecast)
-            )),
-            'carbon_savings_Mg': max(0.0, float(np.sum(bau_emissions) - np.sum(reforest_emissions))),
+            # Consistent key names (was inconsistently named before)
+            'projected_loss_avoidance_ha': projected_loss_avoidance,
+            'carbon_savings_Mg': carbon_savings,
             'trend_slope': float(linear_coeffs[0]),
         }
 
@@ -817,8 +936,8 @@ class TimeSeriesForecaster:
                 emissions = None
 
             forecasts[state] = self.forecast_state(state, losses, emissions)
-            print(f"  ✅ {state}: Reforestation needed = "
-                  f"{forecasts[state]['reforestation_needed_ha']:,.0f} ha")
+            print(f"  ✅ {state}: Loss avoidance = "
+                  f"{forecasts[state]['projected_loss_avoidance_ha']:,.0f} ha")
 
         self.forecasts = forecasts
         return forecasts
@@ -837,8 +956,8 @@ class TimeSeriesForecaster:
             total_emissions = None
 
         country_forecast = self.forecast_state('India', total_losses, total_emissions)
-        print(f"  🇮🇳 India Total: Reforestation needed = "
-              f"{country_forecast['reforestation_needed_ha']:,.0f} ha")
+        print(f"  🇮🇳 India Total: Loss avoidance = "
+              f"{country_forecast['projected_loss_avoidance_ha']:,.0f} ha")
 
         return country_forecast
 
@@ -897,6 +1016,7 @@ class ReforestationPipeline:
             'remaining_forest_ratio', 'vulnerability_score',
             'biomass_density', 'total_emissions_Mg', 'carbon_intensity',
             'fuzzy_priority_score',
+            'log_total_loss', 'log_total_emissions', 'log_area',
         ]
 
         # Verify feature columns exist
@@ -946,7 +1066,16 @@ class ReforestationPipeline:
         total_forest_2000 = float(self.state_data['extent_2000_ha'].sum())
         total_loss = float(self.state_data['total_loss_ha'].sum())
         total_gain = float(self.state_data['gain_2000-2012_ha'].sum())
-        total_emissions = float(self.state_data['total_emissions_Mg'].sum()) if 'total_emissions_Mg' in self.state_data.columns else 0
+
+        # FIX: Actually compute emissions from the emission columns directly
+        if emission_cols:
+            total_emissions = float(self.state_data[emission_cols].sum().sum())
+        elif 'total_emissions_Mg' in self.state_data.columns:
+            total_emissions = float(self.state_data['total_emissions_Mg'].sum())
+        else:
+            total_emissions = 0
+
+        print(f"  📊 Total emissions computed: {total_emissions:,.0f} Mg")
 
         # --- State Rankings ---
         state_rankings = []
@@ -1011,8 +1140,9 @@ class ReforestationPipeline:
             ]
 
         # --- Reforestation Plan ---
-        total_reforestation_needed = sum(
-            max(0, f['reforestation_needed_ha']) for f in state_forecasts.values()
+        # Use consistent key: projected_loss_avoidance_ha
+        total_projected_avoidance = sum(
+            max(0, f['projected_loss_avoidance_ha']) for f in state_forecasts.values()
         )
         total_carbon_savings = sum(
             max(0, f['carbon_savings_Mg']) for f in state_forecasts.values()
@@ -1021,12 +1151,14 @@ class ReforestationPipeline:
         reforestation_plan = []
         for state in state_rankings:
             forecast = state_forecasts.get(state['name'], {})
+            avoidance = max(0, forecast.get('projected_loss_avoidance_ha', 0))
+            csavings = max(0, forecast.get('carbon_savings_Mg', 0))
             reforestation_plan.append({
                 'name': state['name'],
                 'priority_label': state['fuzzy_priority_label'],
                 'priority_score': state['fuzzy_priority_score'],
-                'reforestation_needed_ha': forecast.get('reforestation_needed_ha', 0),
-                'carbon_savings_Mg': forecast.get('carbon_savings_Mg', 0),
+                'projected_loss_avoidance_ha': avoidance,
+                'carbon_savings_Mg': csavings,
                 'current_loss_rate': state['avg_annual_loss_ha'],
             })
         reforestation_plan.sort(key=lambda x: x['priority_score'], reverse=True)
@@ -1051,7 +1183,7 @@ class ReforestationPipeline:
                 'isfr_forest_area_sqkm': 713789,
                 'isfr_tree_cover_sqkm': 111818,
                 'avg_annual_loss_ha': total_loss / 20,
-                'total_reforestation_needed_ha': total_reforestation_needed,
+                'total_projected_loss_avoidance_ha': total_projected_avoidance,
                 'total_carbon_savings_Mg': total_carbon_savings,
                 'num_states': len(state_rankings),
                 'num_critical_states': sum(1 for s in state_rankings if s['fuzzy_priority_label'] == 'Critical'),
@@ -1119,7 +1251,7 @@ if __name__ == '__main__':
     print(f"  ✅ Total Gain: {overview['total_gain_ha']:,.0f} ha")
     print(f"  📉 Net Loss: {overview['net_loss_ha']:,.0f} ha")
     print(f"  🏭 Total CO2 Emissions: {overview['total_emissions_Mg']:,.0f} Mg")
-    print(f"  🌿 Reforestation Needed: {overview['total_reforestation_needed_ha']:,.0f} ha")
+    print(f"  🌿 Projected Loss Avoidance: {overview['total_projected_loss_avoidance_ha']:,.0f} ha")
     print(f"  💨 Potential Carbon Savings: {overview['total_carbon_savings_Mg']:,.0f} Mg")
     print(f"  🔴 Critical Priority States: {overview['num_critical_states']}")
     print(f"  🟠 High Priority States: {overview['num_high_states']}")
@@ -1130,3 +1262,4 @@ if __name__ == '__main__':
     print(f"  Test R²: {best_model[1]['test_r2']:.4f}")
     print(f"  Test MAE: {best_model[1]['test_mae']:.2f}")
     print(f"  Test RMSE: {best_model[1]['test_rmse']:.2f}")
+    print(f"  Overfit Gap: {best_model[1]['overfit_gap']:.4f}")

@@ -5,7 +5,7 @@ import {
   Trees, Activity, Info, BarChart3, TrendingUp, TrendingDown,
   AlertTriangle, ShieldCheck, Brain, Layers, Target, Leaf,
   ChevronDown, Zap, Globe, Flame, ArrowRight, Sparkles,
-  ChevronUp, Menu, X
+  ChevronUp, Menu, X, Filter
 } from 'lucide-react'
 
 // ============================================================================
@@ -15,19 +15,19 @@ const COLORS = {
   green: '#00e676', greenDark: '#00c853', teal: '#00bfa5',
   red: '#ff5252', redLight: '#ff8a65', warning: '#ffc107',
   blue: '#448aff', purple: '#b388ff', cyan: '#40c4ff',
-  white: '#e8edf5', muted: '#5a6682',
+  white: '#f0f4fc', muted: '#94a3b8', background: '#060910'
 }
 
 const PLOTLY_LAYOUT = {
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
-  font: { family: 'Inter, sans-serif', color: '#8b97b0', size: 12 },
+  font: { family: 'Inter, sans-serif', color: '#94a3b8', size: 12 },
   margin: { t: 30, r: 20, b: 50, l: 60 },
-  xaxis: { gridcolor: 'rgba(255,255,255,0.04)', linecolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.06)', tickfont: { size: 11 } },
-  yaxis: { gridcolor: 'rgba(255,255,255,0.04)', linecolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.06)', tickfont: { size: 11 } },
-  hoverlabel: { bgcolor: '#1a2332', bordercolor: 'rgba(255,255,255,0.1)', font: { color: '#e8edf5', family: 'Inter', size: 13 } },
-  legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: '#8b97b0', size: 11 } },
-  modebar: { bgcolor: 'rgba(0,0,0,0)', color: '#5a6682', activecolor: '#00e676' },
+  xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)', zerolinecolor: 'rgba(255,255,255,0.1)', tickfont: { size: 11 } },
+  yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)', zerolinecolor: 'rgba(255,255,255,0.1)', tickfont: { size: 11 } },
+  hoverlabel: { bgcolor: '#0f1524', bordercolor: 'rgba(255,255,255,0.15)', font: { color: '#f0f4fc', family: 'Inter', size: 13 } },
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { color: '#94a3b8', size: 11 } },
+  modebar: { bgcolor: 'rgba(0,0,0,0)', color: '#94a3b8', activecolor: '#00e676' },
 }
 
 const PLOTLY_CONFIG = { displayModeBar: false, responsive: true, displaylogo: false }
@@ -40,13 +40,13 @@ const fmt = (n, d = 0) => {
   if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B'
   if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M'
   if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + 'K'
-  return n.toFixed(d)
+  return n.toLocaleString(undefined, { maximumFractionDigits: d })
 }
 const fmtHa = (n) => {
   if (n == null || isNaN(n)) return '—'
   if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M ha'
   if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + 'K ha'
-  return n.toFixed(0) + ' ha'
+  return n.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ha'
 }
 
 const badgeClass = (l) => ({ Critical: 'badge-critical', High: 'badge-high', Moderate: 'badge-moderate', Low: 'badge-low' }[l] || 'badge-moderate')
@@ -56,7 +56,7 @@ const badgeClass = (l) => ({ Critical: 'badge-critical', High: 'badge-high', Mod
 // ============================================================================
 
 // SpotlightCard — Mouse-following glow
-const SpotlightCard = ({ children, className = "", glowColor = "rgba(0, 230, 118, 0.06)" }) => {
+const SpotlightCard = ({ children, className = "", glowColor = "rgba(0, 230, 118, 0.08)", style = {} }) => {
   const ref = useRef(null)
   const handleMouseMove = (e) => {
     if (!ref.current) return
@@ -66,7 +66,7 @@ const SpotlightCard = ({ children, className = "", glowColor = "rgba(0, 230, 118
     ref.current.style.setProperty("--glow-color", glowColor)
   }
   return (
-    <div ref={ref} onMouseMove={handleMouseMove} className={`spotlight-card p-6 ${className}`}>
+    <div ref={ref} onMouseMove={handleMouseMove} className={`spotlight-card p-6 ${className}`} style={style}>
       {children}
     </div>
   )
@@ -114,8 +114,9 @@ const SectionHeader = ({ icon: Icon, label, title, subtitle, color = "text-prima
       <Icon size={16} />
       <span className="uppercase tracking-widest">{label}</span>
     </div>
-    <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{title}</h2>
+    <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">{title}</h2>
     {subtitle && <p className="text-text-muted max-w-2xl text-lg">{subtitle}</p>}
+    <div className={`h-1 w-20 rounded-full mt-6 bg-gradient-to-r from-transparent via-${color.replace('text-', '')} to-transparent opacity-50`} />
   </FadeInSection>
 )
 
@@ -123,7 +124,7 @@ const SectionHeader = ({ icon: Icon, label, title, subtitle, color = "text-prima
 const Tooltip = ({ children, text }) => (
   <div className="group relative inline-flex">
     {children}
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-card border border-white/10 rounded-lg shadow-xl text-xs text-text-muted hidden group-hover:block z-50 pointer-events-none">
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-card border border-white/10 rounded-xl shadow-2xl text-xs text-text-muted hidden group-hover:block z-50 pointer-events-none backdrop-blur-md">
       {text}
     </div>
   </div>
@@ -134,16 +135,16 @@ const PriorityBar = ({ score, label }) => {
   const colorMap = { Critical: '#ff5252', High: '#ffc107', Moderate: '#448aff', Low: '#00e676' }
   return (
     <div className="flex items-center gap-2">
-      <div className="w-20 h-2 rounded-full bg-white/5 overflow-hidden">
+      <div className="w-24 h-2 rounded-full bg-white/5 overflow-hidden">
         <motion.div
           className="h-full rounded-full"
-          style={{ backgroundColor: colorMap[label] || COLORS.blue }}
+          style={{ backgroundColor: colorMap[label] || COLORS.blue, boxShadow: `0 0 10px ${colorMap[label]}80` }}
           initial={{ width: 0 }}
           animate={{ width: `${score}%` }}
           transition={{ duration: 1.2, ease: "easeOut" }}
         />
       </div>
-      <span className="text-xs font-mono text-text-muted">{score.toFixed(0)}</span>
+      <span className="text-xs font-mono text-text-muted w-6 text-right">{score.toFixed(0)}</span>
     </div>
   )
 }
@@ -184,28 +185,29 @@ const Navbar = () => {
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'glass-panel border-x-0 border-t-0 rounded-none shadow-2xl' : 'bg-transparent border-b border-transparent'}`}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         <a href="#dashboard" className="flex items-center gap-2.5 text-xl font-display font-bold text-white group">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Trees size={18} className="text-background" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(0,230,118,0.5)]">
+            <Trees size={20} className="text-background" />
           </div>
-          <span>ReForest <span className="text-primary">AI</span></span>
+          <span className="tracking-tight">ReForest <span className="text-primary">AI</span></span>
         </a>
         
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-text-muted p-2">
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-text-muted p-2 hover:bg-white/5 rounded-lg transition-colors">
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
         
-        <div className={`${mobileOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:static top-full left-0 w-full md:w-auto bg-background md:bg-transparent p-6 md:p-0 gap-1 md:gap-1 border-b md:border-0 border-white/5`}>
+        <div className={`${mobileOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:static top-full left-0 w-full md:w-auto bg-[#0a0e17] md:bg-transparent p-6 md:p-0 gap-2 md:gap-1 border-b md:border-0 border-white/10 shadow-2xl md:shadow-none`}>
           {sections.map(s => (
             <a
               key={s.id}
               href={`#${s.id}`}
               onClick={() => setMobileOpen(false)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                 active === s.id 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-text-muted hover:text-white hover:bg-white/5'
+                  ? 'bg-primary/10 text-primary border border-primary/20' 
+                  : 'text-text-muted hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
+              <s.icon size={16} className={active === s.id ? 'text-primary' : 'text-text-muted'} />
               {s.label}
             </a>
           ))}
@@ -221,19 +223,16 @@ const Navbar = () => {
 const HeroDashboard = ({ data }) => {
   const o = data.overview
   return (
-    <section id="dashboard" className="pt-32 pb-8">
-      {/* Gradient orb background */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-radial from-primary/5 via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
-      
-      <FadeInSection className="text-center max-w-4xl mx-auto mb-20 relative">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8">
-          <Sparkles size={14} />
+    <section id="dashboard" className="pt-32 pb-16 relative">
+      <FadeInSection className="text-center max-w-5xl mx-auto mb-20 relative z-10">
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8 pulse-primary">
+          <Sparkles size={16} />
           Powered by Ensemble ML + Fuzzy Logic AI
         </div>
-        <h1 className="text-5xl md:text-7xl font-bold leading-[1.1] mb-6">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.1] mb-6 tracking-tight">
           Reversing India's
           <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-cyan-400">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-cyan-400 glow-text">
             Deforestation Crisis
           </span>
         </h1>
@@ -244,51 +243,51 @@ const HeroDashboard = ({ data }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <FadeInSection delay={0.1}>
-          <SpotlightCard glowColor="rgba(255, 82, 82, 0.08)">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center"><AlertTriangle size={16} className="text-danger" /></div>
-              <span className="text-sm font-medium text-text-muted">Total Forest Loss</span>
+          <SpotlightCard glowColor="rgba(255, 82, 82, 0.15)" className="h-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center border border-danger/20"><AlertTriangle size={20} className="text-danger" /></div>
+              <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Total Forest Loss</span>
             </div>
-            <div className="text-3xl md:text-4xl font-display font-bold text-danger"><AnimatedNumber value={o.total_loss_ha} suffix=" ha" /></div>
-            <div className="text-xs text-text-muted mt-2">Since 2001 · GFW Data (&gt;30% canopy)</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-danger glow-danger mb-2"><AnimatedNumber value={o.total_loss_ha} suffix=" ha" /></div>
+            <div className="text-sm text-text-muted">Since 2001 · GFW Data (&gt;30% canopy)</div>
           </SpotlightCard>
         </FadeInSection>
 
         <FadeInSection delay={0.2}>
-          <SpotlightCard glowColor="rgba(255, 193, 7, 0.08)">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center"><Flame size={16} className="text-warning" /></div>
-              <span className="text-sm font-medium text-text-muted">CO₂ Released</span>
+          <SpotlightCard glowColor="rgba(255, 193, 7, 0.15)" className="h-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center border border-warning/20"><Flame size={20} className="text-warning" /></div>
+              <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">CO₂ Released</span>
             </div>
-            <div className="text-3xl md:text-4xl font-display font-bold text-warning"><AnimatedNumber value={o.total_emissions_Mg} suffix=" Mg" /></div>
-            <div className="text-xs text-text-muted mt-2">Greenhouse gas emissions from loss</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-warning mb-2"><AnimatedNumber value={o.total_emissions_Mg} suffix=" Mg" /></div>
+            <div className="text-sm text-text-muted">Greenhouse gas emissions from loss</div>
           </SpotlightCard>
         </FadeInSection>
 
         <FadeInSection delay={0.3}>
-          <SpotlightCard glowColor="rgba(0, 230, 118, 0.08)">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><Trees size={16} className="text-primary" /></div>
-              <span className="text-sm font-medium text-text-muted">Reforestation Target</span>
+          <SpotlightCard glowColor="rgba(0, 230, 118, 0.15)" className="h-full border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30"><Trees size={20} className="text-primary" /></div>
+              <span className="text-sm font-semibold text-primary uppercase tracking-wider">Reforestation Target</span>
             </div>
-            <div className="text-3xl md:text-4xl font-display font-bold text-primary"><AnimatedNumber value={o.total_reforestation_needed_ha} suffix=" ha" /></div>
-            <div className="text-xs text-text-muted mt-2">AI-recommended intervention area</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-primary glow-text mb-2"><AnimatedNumber value={o.total_projected_loss_avoidance_ha} suffix=" ha" /></div>
+            <div className="text-sm text-primary/80">AI-recommended intervention area</div>
           </SpotlightCard>
         </FadeInSection>
 
         <FadeInSection delay={0.4}>
-          <SpotlightCard className="border-primary/20" glowColor="rgba(0, 230, 118, 0.12)">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"><ShieldCheck size={16} className="text-primary" /></div>
-                <span className="text-sm font-medium text-text-muted">Official Cover</span>
+          <SpotlightCard className="h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10"><ShieldCheck size={20} className="text-white" /></div>
+                <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Official Cover</span>
               </div>
               <Tooltip text={`ISFR ${o.isfr_report_year}: Forest cover ${o.isfr_forest_cover_pct}% (${(o.isfr_forest_area_sqkm/1000).toFixed(0)}K km²) + Tree cover ${o.isfr_tree_cover_pct}% = ${o.isfr_total_cover_pct}% total. GFW measures only dense canopy (>30%).`}>
-                <Info size={14} className="text-text-muted cursor-help hover:text-primary transition-colors" />
+                <Info size={16} className="text-text-muted cursor-help hover:text-white transition-colors" />
               </Tooltip>
             </div>
-            <div className="text-3xl md:text-4xl font-display font-bold text-white"><AnimatedNumber value={o.isfr_total_cover_pct} suffix="%" /></div>
-            <div className="text-xs text-primary mt-2">ISFR {o.isfr_report_year} · Forest + Tree Cover</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-white mb-2"><AnimatedNumber value={o.isfr_total_cover_pct} suffix="%" /></div>
+            <div className="text-sm text-text-muted">ISFR {o.isfr_report_year} · Forest + Tree Cover</div>
           </SpotlightCard>
         </FadeInSection>
       </div>
@@ -305,14 +304,15 @@ const PastAnalysis = ({ data }) => {
   if (!t) return null
 
   return (
-    <section id="past" className="py-24">
+    <section id="past" className="py-24 relative">
       <SectionHeader icon={BarChart3} label="Historical Analysis" title="Two Decades of Forest Loss" subtitle="India's deforestation trajectory from 2001 to 2020 — patterns, peaks, and the compounding crisis." color="text-danger" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <FadeInSection>
-          <SpotlightCard glowColor="rgba(255, 82, 82, 0.06)">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <BarChart3 size={18} className="text-danger" /> Annual Tree Cover Loss
+          <SpotlightCard glowColor="rgba(255, 82, 82, 0.1)">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="p-2 bg-danger/10 rounded-lg"><BarChart3 size={20} className="text-danger" /></div>
+              Annual Tree Cover Loss
             </h3>
             <Plot
               data={[{
@@ -323,7 +323,8 @@ const PastAnalysis = ({ data }) => {
                     const r = v / max
                     return r > 0.8 ? COLORS.red : r > 0.5 ? COLORS.warning : COLORS.teal
                   }),
-                  opacity: 0.85,
+                  opacity: 0.9,
+                  line: { width: 0 }
                 },
                 hovertemplate: '<b>%{x}</b><br>Loss: %{y:,.0f} ha<extra></extra>',
               }]}
@@ -335,16 +336,17 @@ const PastAnalysis = ({ data }) => {
         </FadeInSection>
 
         <FadeInSection delay={0.15}>
-          <SpotlightCard glowColor="rgba(255, 82, 82, 0.06)">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <TrendingUp size={18} className="text-danger" /> Cumulative Loss
+          <SpotlightCard glowColor="rgba(255, 82, 82, 0.1)">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="p-2 bg-danger/10 rounded-lg"><TrendingUp size={20} className="text-danger" /></div>
+              Cumulative Loss
             </h3>
             <Plot
               data={[{
                 x: t.years, y: t.cumulative_loss_ha, type: 'scatter', mode: 'lines+markers',
-                fill: 'tozeroy', fillcolor: 'rgba(255, 82, 82, 0.06)',
+                fill: 'tozeroy', fillcolor: 'rgba(255, 82, 82, 0.1)',
                 line: { color: COLORS.red, width: 3, shape: 'spline' },
-                marker: { size: 4, color: COLORS.red },
+                marker: { size: 6, color: COLORS.red, symbol: 'circle' },
                 hovertemplate: '<b>%{x}</b><br>Cumulative: %{y:,.0f} ha<extra></extra>',
               }]}
               layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative (ha)' }, height: 350 }}
@@ -356,16 +358,17 @@ const PastAnalysis = ({ data }) => {
       </div>
 
       <FadeInSection delay={0.2}>
-        <SpotlightCard glowColor="rgba(255, 193, 7, 0.06)">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Flame size={18} className="text-warning" /> CO₂ Emissions from Deforestation
+        <SpotlightCard glowColor="rgba(255, 193, 7, 0.1)">
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+            <div className="p-2 bg-warning/10 rounded-lg"><Flame size={20} className="text-warning" /></div>
+            CO₂ Emissions from Deforestation
           </h3>
           <Plot
             data={[{
               x: t.years, y: t.annual_emissions_Mg, type: 'scatter', mode: 'lines+markers',
-              fill: 'tozeroy', fillcolor: 'rgba(255, 193, 7, 0.04)',
+              fill: 'tozeroy', fillcolor: 'rgba(255, 193, 7, 0.08)',
               line: { color: COLORS.warning, width: 3, shape: 'spline' },
-              marker: { size: 4, color: COLORS.warning },
+              marker: { size: 6, color: COLORS.warning },
               hovertemplate: '<b>%{x}</b><br>Emissions: %{y:,.0f} Mg CO₂<extra></extra>',
             }]}
             layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'CO₂ Emissions (Mg)' }, height: 300 }}
@@ -379,8 +382,9 @@ const PastAnalysis = ({ data }) => {
       {states && states.length > 0 && (
         <FadeInSection delay={0.3} className="mt-8">
           <SpotlightCard>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Layers size={18} className="text-purple-400" /> State-wise Loss Heatmap (Top 15)
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg"><Layers size={20} className="text-purple-400" /></div>
+              State-wise Loss Heatmap (Top 15)
             </h3>
             <Plot
               data={[{
@@ -388,11 +392,11 @@ const PastAnalysis = ({ data }) => {
                 x: Array.from({ length: 20 }, (_, i) => 2001 + i),
                 y: states.slice(0, 15).map(s => s.name),
                 type: 'heatmap',
-                colorscale: [[0, '#0a0e17'], [0.2, '#1a4731'], [0.4, '#2d7a4f'], [0.6, '#ffc107'], [0.8, '#ff8a65'], [1, '#ff5252']],
+                colorscale: [[0, '#060910'], [0.2, '#0f291e'], [0.4, '#1b5e3a'], [0.6, '#d97706'], [0.8, '#dc2626'], [1, '#991b1b']],
                 hovertemplate: '<b>%{y}</b> (%{x})<br>Loss: %{z:,.0f} ha<extra></extra>',
-                colorbar: { title: { text: 'Loss (ha)', font: { color: '#8b97b0' } }, tickfont: { color: '#8b97b0' } },
+                colorbar: { title: { text: 'Loss (ha)', font: { color: '#94a3b8' } }, tickfont: { color: '#94a3b8' }, thickness: 15 },
               }]}
-              layout={{ ...PLOTLY_LAYOUT, margin: { t: 20, r: 100, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, autorange: 'reversed' }, height: 450 }}
+              layout={{ ...PLOTLY_LAYOUT, margin: { t: 20, r: 80, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, autorange: 'reversed' }, height: 500 }}
               config={PLOTLY_CONFIG}
               className="w-full"
             />
@@ -414,7 +418,8 @@ const PresentState = ({ data }) => {
   const top10 = states.slice(0, 10)
 
   return (
-    <section id="present" className="py-24">
+    <section id="present" className="py-24 relative">
+      <div className="absolute top-1/2 -right-64 w-[600px] h-[600px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none" />
       <SectionHeader icon={Activity} label="Current Status" title="Where India Stands Today" subtitle="Vulnerability analysis of 36 states and union territories using AI-driven fuzzy logic scoring." color="text-cyan-400" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
@@ -425,13 +430,13 @@ const PresentState = ({ data }) => {
           { label: 'Avg. Annual Loss', value: fmtHa(o.avg_annual_loss_ha), detail: 'Per year over 20 years', color: 'text-warning', icon: Activity },
         ].map((item, i) => (
           <FadeInSection key={i} delay={i * 0.1}>
-            <SpotlightCard>
-              <div className="flex items-center gap-2 mb-2">
-                <item.icon size={16} className={item.color} />
-                <span className="text-xs font-medium text-text-muted">{item.label}</span>
+            <SpotlightCard className="h-full border-t-4" style={{ borderTopColor: COLORS[item.color.replace('text-', '')] || COLORS.white }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`p-1.5 rounded-md bg-white/5`}><item.icon size={16} className={item.color} /></div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{item.label}</span>
               </div>
-              <div className={`text-2xl md:text-3xl font-display font-bold ${item.color}`}>{item.value}</div>
-              <div className="text-xs text-text-muted mt-1">{item.detail}</div>
+              <div className={`text-3xl font-display font-bold ${item.color} mb-1`}>{item.value}</div>
+              <div className="text-xs text-text-muted">{item.detail}</div>
             </SpotlightCard>
           </FadeInSection>
         ))}
@@ -439,17 +444,17 @@ const PresentState = ({ data }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <FadeInSection>
-          <SpotlightCard>
-            <h3 className="text-lg font-semibold text-white mb-4">Top 10 Most Affected States</h3>
+          <SpotlightCard className="h-full">
+            <h3 className="text-xl font-bold text-white mb-6">Top 10 Most Affected States</h3>
             <Plot
               data={[{
                 y: top10.map(s => s.name).reverse(),
                 x: top10.map(s => s.total_loss_ha).reverse(),
                 type: 'bar', orientation: 'h',
-                marker: { color: top10.map((_, i) => i < 3 ? COLORS.red : i < 6 ? COLORS.warning : COLORS.teal).reverse(), opacity: 0.85 },
+                marker: { color: top10.map((_, i) => i < 3 ? COLORS.red : i < 6 ? COLORS.warning : COLORS.teal).reverse(), opacity: 0.9, line: {width: 0} },
                 hovertemplate: '<b>%{y}</b><br>Total Loss: %{x:,.0f} ha<extra></extra>',
               }]}
-              layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Total Loss (ha)' }, height: 400 }}
+              layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Total Loss (ha)' }, height: 450 }}
               config={PLOTLY_CONFIG}
               className="w-full"
             />
@@ -457,30 +462,38 @@ const PresentState = ({ data }) => {
         </FadeInSection>
 
         <FadeInSection delay={0.15}>
-          <SpotlightCard className="max-h-[480px] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-4">State Rankings</h3>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-text-muted border-b border-white/5">
-                  <th className="py-2 pr-2">#</th>
-                  <th className="py-2">State</th>
-                  <th className="py-2 text-right">Loss</th>
-                  <th className="py-2 text-right">Priority</th>
-                  <th className="py-2 text-right">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {states.map((s, i) => (
-                  <tr key={s.name} className="border-b border-white/3 hover:bg-white/3 transition-colors">
-                    <td className="py-2.5 pr-2"><span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span></td>
-                    <td className="py-2.5 font-medium text-white text-xs">{s.name}</td>
-                    <td className="py-2.5 text-right text-xs font-mono" style={{ color: s.total_loss_ha > 50000 ? COLORS.red : COLORS.white }}>{fmtHa(s.total_loss_ha)}</td>
-                    <td className="py-2.5 text-right"><span className={`${badgeClass(s.fuzzy_priority_label)} text-[10px] px-2 py-0.5 rounded-full font-semibold`}>{s.fuzzy_priority_label}</span></td>
-                    <td className="py-2.5 text-right"><PriorityBar score={s.vulnerability_score * 100} label={s.fuzzy_priority_label} /></td>
+          <SpotlightCard className="h-full max-h-[550px] flex flex-col p-0 overflow-hidden">
+            <div className="p-6 pb-4 border-b border-white/10 shrink-0">
+              <h3 className="text-xl font-bold text-white">State Rankings</h3>
+            </div>
+            <div className="overflow-y-auto flex-grow p-6 pt-0 custom-scrollbar">
+              <table className="w-full text-sm mt-4">
+                <thead>
+                  <tr className="text-left text-text-muted border-b border-white/10 uppercase text-xs tracking-wider">
+                    <th className="pb-3 pr-2 font-semibold">#</th>
+                    <th className="pb-3 font-semibold">State</th>
+                    <th className="pb-3 text-right font-semibold">Loss</th>
+                    <th className="pb-3 text-center font-semibold">Priority</th>
+                    <th className="pb-3 text-right font-semibold">Score</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {states.map((s, i) => (
+                    <tr key={s.name} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="py-3 pr-2">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span>
+                      </td>
+                      <td className="py-3 font-medium text-white">{s.name}</td>
+                      <td className="py-3 text-right text-xs font-mono" style={{ color: s.total_loss_ha > 50000 ? COLORS.red : COLORS.white }}>{fmtHa(s.total_loss_ha)}</td>
+                      <td className="py-3 text-center">
+                        <span className={`${badgeClass(s.fuzzy_priority_label)} text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide`}>{s.fuzzy_priority_label}</span>
+                      </td>
+                      <td className="py-3 text-right flex justify-end"><PriorityBar score={s.vulnerability_score * 100} label={s.fuzzy_priority_label} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </SpotlightCard>
         </FadeInSection>
       </div>
@@ -502,58 +515,58 @@ const FutureScenarios = ({ data }) => {
   const refEmTotal = cf.reforestation_scenario.annual_emissions_Mg.reduce((a, b) => a + b, 0)
 
   return (
-    <section id="future" className="py-24">
+    <section id="future" className="py-24 relative">
       <SectionHeader icon={TrendingUp} label="Predictive Modeling" title="Two Possible Futures" subtitle="What happens if we do nothing vs. what's possible with strategic reforestation." color="text-purple-400" />
 
       {/* Scenario comparison cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <FadeInSection>
-          <SpotlightCard className="border-danger/20" glowColor="rgba(255, 82, 82, 0.08)">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center"><TrendingUp size={20} className="text-danger" /></div>
+          <SpotlightCard className="border-danger/30 bg-gradient-to-br from-card to-danger/5" glowColor="rgba(255, 82, 82, 0.1)">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-danger/15 flex items-center justify-center border border-danger/30 shadow-[0_0_15px_rgba(255,82,82,0.3)]"><TrendingUp size={24} className="text-danger" /></div>
               <div>
-                <h3 className="text-lg font-bold text-white">Business as Usual</h3>
-                <p className="text-xs text-text-muted">If deforestation continues unchecked</p>
+                <h3 className="text-2xl font-bold text-white">Business as Usual</h3>
+                <p className="text-sm text-text-muted">If deforestation continues unchecked</p>
               </div>
             </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="text-sm text-text-muted">Additional Loss (2021-2030)</span>
-                <span className="text-lg font-bold text-danger">{fmtHa(bauTotal)}</span>
+            <div className="space-y-5 bg-black/20 p-5 rounded-xl border border-white/5">
+              <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Additional Loss (2021-2030)</span>
+                <span className="text-xl font-bold text-danger glow-danger">{fmtHa(bauTotal)}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="text-sm text-text-muted">Projected CO₂ Emissions</span>
-                <span className="text-lg font-bold text-warning">{fmt(bauEmTotal)} Mg</span>
+              <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Projected CO₂ Emissions</span>
+                <span className="text-xl font-bold text-warning">{fmt(bauEmTotal)} Mg</span>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-text-muted">Cumulative Loss by 2030</span>
-                <span className="text-lg font-bold text-danger">{fmtHa(cf.bau_scenario.cumulative_loss_ha[cf.bau_scenario.cumulative_loss_ha.length - 1])}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Cumulative Loss by 2030</span>
+                <span className="text-xl font-bold text-danger">{fmtHa(cf.bau_scenario.cumulative_loss_ha[cf.bau_scenario.cumulative_loss_ha.length - 1])}</span>
               </div>
             </div>
           </SpotlightCard>
         </FadeInSection>
 
         <FadeInSection delay={0.15}>
-          <SpotlightCard className="border-primary/20" glowColor="rgba(0, 230, 118, 0.08)">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Leaf size={20} className="text-primary" /></div>
+          <SpotlightCard className="border-primary/30 bg-gradient-to-br from-card to-primary/5" glowColor="rgba(0, 230, 118, 0.1)">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(0,230,118,0.3)]"><Leaf size={24} className="text-primary" /></div>
               <div>
-                <h3 className="text-lg font-bold text-white">With Reforestation</h3>
-                <p className="text-xs text-text-muted">Active intervention + strategic planting</p>
+                <h3 className="text-2xl font-bold text-white">With Reforestation</h3>
+                <p className="text-sm text-text-muted">Active intervention + strategic planting</p>
               </div>
             </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="text-sm text-text-muted">Reduced Loss (2021-2030)</span>
-                <span className="text-lg font-bold text-primary">{fmtHa(refTotal)}</span>
+            <div className="space-y-5 bg-black/20 p-5 rounded-xl border border-white/5">
+              <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Reduced Loss (2021-2030)</span>
+                <span className="text-xl font-bold text-primary glow-text">{fmtHa(refTotal)}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="text-sm text-text-muted">Carbon Saved</span>
-                <span className="text-lg font-bold text-primary">{fmt(Math.max(0, bauEmTotal - refEmTotal))} Mg</span>
+              <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Carbon Saved</span>
+                <span className="text-xl font-bold text-primary">{fmt(Math.max(0, bauEmTotal - refEmTotal))} Mg</span>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-text-muted">Cumulative Loss by 2030</span>
-                <span className="text-lg font-bold text-primary">{fmtHa(cf.reforestation_scenario.cumulative_loss_ha[cf.reforestation_scenario.cumulative_loss_ha.length - 1])}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Cumulative Loss by 2030</span>
+                <span className="text-xl font-bold text-primary">{fmtHa(cf.reforestation_scenario.cumulative_loss_ha[cf.reforestation_scenario.cumulative_loss_ha.length - 1])}</span>
               </div>
             </div>
           </SpotlightCard>
@@ -564,20 +577,20 @@ const FutureScenarios = ({ data }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FadeInSection>
           <SpotlightCard>
-            <h3 className="text-lg font-semibold text-white mb-4">Annual Loss Projection</h3>
+            <h3 className="text-xl font-bold text-white mb-6">Annual Loss Projection</h3>
             <Plot
               data={[
-                { x: cf.past.years, y: cf.past.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Historical', line: { color: COLORS.white, width: 2 }, marker: { size: 3 } },
-                { x: cf.bau_scenario.years, y: cf.bau_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dot' }, marker: { size: 4, symbol: 'diamond' }, fill: 'tozeroy', fillcolor: 'rgba(255,82,82,0.04)' },
-                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dot' }, marker: { size: 4, symbol: 'star' }, fill: 'tozeroy', fillcolor: 'rgba(0,230,118,0.04)' },
+                { x: cf.past.years, y: cf.past.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Historical', line: { color: COLORS.white, width: 2 }, marker: { size: 5 } },
+                { x: cf.bau_scenario.years, y: cf.bau_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dash' }, marker: { size: 6, symbol: 'diamond' }, fill: 'tozeroy', fillcolor: 'rgba(255,82,82,0.05)' },
+                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dash' }, marker: { size: 6, symbol: 'square' }, fill: 'tozeroy', fillcolor: 'rgba(0,230,118,0.05)' },
               ]}
               layout={{
                 ...PLOTLY_LAYOUT,
                 xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Annual Loss (ha)' },
                 legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' },
                 shapes: [{ type: 'line', x0: 2020.5, x1: 2020.5, y0: 0, y1: 1, yref: 'paper', line: { color: COLORS.muted, width: 2, dash: 'dash' } }],
-                annotations: [{ x: 2020.5, y: 1.05, yref: 'paper', text: 'Forecast →', showarrow: false, font: { color: COLORS.muted, size: 11 } }],
-                height: 380,
+                annotations: [{ x: 2020.5, y: 1.05, yref: 'paper', text: 'Forecast →', showarrow: false, font: { color: COLORS.muted, size: 12, weight: 'bold' } }],
+                height: 400,
               }}
               config={PLOTLY_CONFIG}
               className="w-full"
@@ -587,14 +600,14 @@ const FutureScenarios = ({ data }) => {
 
         <FadeInSection delay={0.15}>
           <SpotlightCard>
-            <h3 className="text-lg font-semibold text-white mb-4">Cumulative Loss Trajectory</h3>
+            <h3 className="text-xl font-bold text-white mb-6">Cumulative Loss Trajectory</h3>
             <Plot
               data={[
-                { x: cf.past.years, y: cf.past.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Historical', line: { color: COLORS.white, width: 2 } },
-                { x: cf.bau_scenario.years, y: cf.bau_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dot' }, fill: 'tonexty', fillcolor: 'rgba(255,82,82,0.04)' },
-                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dot' } },
+                { x: cf.past.years, y: cf.past.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Historical', line: { color: COLORS.white, width: 3 } },
+                { x: cf.bau_scenario.years, y: cf.bau_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dash' }, fill: 'tonexty', fillcolor: 'rgba(255,82,82,0.1)' },
+                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dash' } },
               ]}
-              layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative (ha)' }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 380 }}
+              layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative (ha)' }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 400 }}
               config={PLOTLY_CONFIG}
               className="w-full"
             />
@@ -604,19 +617,20 @@ const FutureScenarios = ({ data }) => {
 
       {/* Carbon savings */}
       <FadeInSection delay={0.2} className="mt-6">
-        <SpotlightCard>
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Leaf size={18} className="text-primary" /> Cumulative Carbon Savings from Reforestation
+        <SpotlightCard className="bg-gradient-to-r from-card via-primary/5 to-card border-primary/20">
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg"><Leaf size={20} className="text-primary" /></div>
+            Cumulative Carbon Savings from Reforestation
           </h3>
           <Plot
             data={[{
               x: cf.reforestation_scenario.years,
               y: cf.reforestation_scenario.carbon_saved_Mg || cf.reforestation_scenario.years.map(() => 0),
               type: 'bar',
-              marker: { color: 'rgba(0, 230, 118, 0.6)', line: { width: 0 } },
+              marker: { color: 'rgba(0, 230, 118, 0.8)', line: { width: 0 }, opacity: 0.9 },
               hovertemplate: '<b>%{x}</b><br>Carbon Saved: %{y:,.0f} Mg CO₂<extra></extra>',
             }]}
-            layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 1 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative Saved (Mg CO₂)' }, height: 280 }}
+            layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 1 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative Saved (Mg CO₂)' }, height: 320 }}
             config={PLOTLY_CONFIG}
             className="w-full"
           />
@@ -636,124 +650,166 @@ const MLInsights = ({ data }) => {
   const featureImp = data.modelPerformance?.feature_importance || {}
   const smote = data.modelPerformance?.smote_analysis || {}
 
-  // Reconstruct models if the API returns flat structure
-  const modelEntries = Object.entries(models).filter(([k]) => !['feature_importance', 'smote_analysis'].includes(k))
+  const [selectedModel, setSelectedModel] = useState('Random Forest')
 
-  let bestName = ''
-  let bestR2 = -Infinity
-  modelEntries.forEach(([n, m]) => { if (m.test_r2 > bestR2) { bestR2 = m.test_r2; bestName = n } })
+  // Filter out any completely broken models (e.g. R2 <= 0) and reconstruct
+  const modelEntries = Object.entries(models)
+    .filter(([k, v]) => !['feature_importance', 'smote_analysis'].includes(k) && v.test_r2 > 0)
+    .sort((a, b) => b[1].test_r2 - a[1].test_r2) // Sort best first
 
-  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'LightGBM': '💡', 'CatBoost': '🐱', 'AdaBoost': '🔥', SVR: '📐', Ridge: '📏', 'Stacking Ensemble': '🏗️' }
+  let bestName = modelEntries.length > 0 ? modelEntries[0][0] : ''
+
+  // Make sure selectedModel exists in featureImp
+  useEffect(() => {
+    if (Object.keys(featureImp).length > 0 && !featureImp[selectedModel] && bestName) {
+      if (featureImp[bestName]) setSelectedModel(bestName)
+      else setSelectedModel(Object.keys(featureImp)[0])
+    }
+  }, [featureImp, bestName])
+
+  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'CatBoost': '🐱', 'AdaBoost': '🔥', SVR: '📐', Ridge: '📏', 'Extra Trees': '🌳', 'Gradient Boosting': '📈', 'HistGradientBoosting': '📊', 'ElasticNet': '🔗', 'Stacking Ensemble': '🏗️' }
 
   return (
-    <section id="ai" className="py-24">
-      <SectionHeader icon={Brain} label="Machine Learning" title="AI Model Performance" subtitle="8 ensemble models trained, cross-validated, and compared. SMOTE applied to balance priority classification." color="text-blue-400" />
+    <section id="ai" className="py-24 relative">
+      <div className="absolute top-0 -left-64 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <SectionHeader icon={Brain} label="Machine Learning" title="AI Model Performance" subtitle="Advanced ensemble models trained with proper regularization and Leave-One-Out Cross-Validation. SMOTE applied to balance priority classification." color="text-blue-400" />
 
       {/* Model Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
         {modelEntries.map(([name, m], i) => (
-          <FadeInSection key={name} delay={i * 0.08}>
-            <SpotlightCard className={name === bestName ? 'border-primary/30 bg-primary/3' : ''} glowColor={name === bestName ? 'rgba(0,230,118,0.1)' : undefined}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{icons[name] || '🤖'}</span>
-                  <span className="font-semibold text-white text-sm">{name}</span>
+          <FadeInSection key={name} delay={i * 0.05}>
+            <SpotlightCard className={`h-full ${name === bestName ? 'border-primary/40 bg-primary/5 shadow-[0_0_20px_rgba(0,230,118,0.15)]' : ''}`} glowColor={name === bestName ? 'rgba(0,230,118,0.15)' : undefined}>
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xl border border-white/10">{icons[name] || '🤖'}</div>
+                  <span className="font-bold text-white text-sm">{name}</span>
                 </div>
-                {name === bestName && <span className="text-xs px-2 py-0.5 bg-primary/15 text-primary rounded-full font-bold">🏆 Best</span>}
+                {name === bestName && <span className="text-[10px] px-2 py-1 bg-primary/20 text-primary rounded-full font-bold uppercase tracking-wider border border-primary/30 animate-pulse">Best Model</span>}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-text-muted">R² Score</span>
-                    <span className="font-mono font-bold" style={{ color: m.test_r2 > 0.8 ? COLORS.green : m.test_r2 > 0.5 ? COLORS.warning : COLORS.red }}>{m.test_r2.toFixed(4)}</span>
+                  <div className="flex justify-between text-xs mb-1.5 font-medium uppercase tracking-wider">
+                    <span className="text-text-muted">Test R² Score</span>
+                    <span className="font-mono font-bold" style={{ color: m.test_r2 > 0.9 ? COLORS.green : m.test_r2 > 0.7 ? COLORS.warning : COLORS.red }}>{m.test_r2.toFixed(4)}</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-                    <motion.div className="h-full rounded-full bg-gradient-to-r from-secondary to-primary" initial={{ width: 0 }} animate={{ width: `${Math.max(0, m.test_r2) * 100}%` }} transition={{ duration: 1.5, delay: i * 0.1 }} />
+                  <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden shadow-inner">
+                    <motion.div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-primary" initial={{ width: 0 }} animate={{ width: `${Math.max(0, m.test_r2) * 100}%` }} transition={{ duration: 1.5, delay: i * 0.1 }} />
                   </div>
                 </div>
-                <div className="flex justify-between text-xs"><span className="text-text-muted">MAE</span><span className="font-mono text-white">{fmt(m.test_mae)}</span></div>
-                <div className="flex justify-between text-xs"><span className="text-text-muted">RMSE</span><span className="font-mono text-white">{fmt(m.test_rmse)}</span></div>
-                {m.cv_r2_mean !== undefined && <div className="flex justify-between text-xs"><span className="text-text-muted">CV R² Mean</span><span className="font-mono text-white">{m.cv_r2_mean.toFixed(4)}</span></div>}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                  <div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">MAE</div>
+                    <div className="font-mono text-white text-sm">{fmt(m.test_mae)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Overfit Gap</div>
+                    <div className="font-mono text-sm" style={{ color: m.overfit_gap > 0.1 ? COLORS.red : COLORS.white }}>{m.overfit_gap !== undefined ? m.overfit_gap.toFixed(4) : '—'}</div>
+                  </div>
+                </div>
               </div>
             </SpotlightCard>
           </FadeInSection>
         ))}
       </div>
 
-      {/* Model Comparison Chart */}
-      <FadeInSection>
-        <SpotlightCard className="mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">Train vs Test R² Comparison</h3>
-          <Plot
-            data={[
-              { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => m.train_r2), type: 'bar', name: 'Train R²', marker: { color: 'rgba(0, 191, 165, 0.6)' } },
-              { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => m.test_r2), type: 'bar', name: 'Test R²', marker: { color: 'rgba(0, 230, 118, 0.8)' } },
-            ]}
-            layout={{ ...PLOTLY_LAYOUT, barmode: 'group', yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'R² Score', range: [Math.min(0, ...modelEntries.map(([, m]) => m.test_r2)) - 0.1, 1.05] }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 350 }}
-            config={PLOTLY_CONFIG}
-            className="w-full"
-          />
-        </SpotlightCard>
-      </FadeInSection>
-
-      {/* SMOTE Before/After */}
-      {smote.before_smote && (
-        <FadeInSection className="mb-8">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Zap size={20} className="text-warning" /> SMOTE: Before vs After</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <SpotlightCard className="border-warning/20" glowColor="rgba(255,193,7,0.08)">
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-widest text-warning font-semibold mb-3">Before SMOTE</div>
-                <div className="text-4xl font-display font-bold text-warning mb-1">{(smote.before_smote.accuracy * 100).toFixed(1)}%</div>
-                <div className="text-sm text-text-muted">Accuracy</div>
-                <div className="mt-3 text-xs text-text-muted">F1: {(smote.before_smote.f1_macro * 100).toFixed(1)}%</div>
-              </div>
-            </SpotlightCard>
-
-            <div className="flex items-center justify-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="w-16 h-16 rounded-full bg-gradient-to-r from-warning to-primary flex items-center justify-center"
-              >
-                <ArrowRight size={24} className="text-background" />
-              </motion.div>
-            </div>
-
-            <SpotlightCard className="border-primary/20" glowColor="rgba(0,230,118,0.08)">
-              <div className="text-center">
-                <div className="text-xs uppercase tracking-widest text-primary font-semibold mb-3">After SMOTE</div>
-                <div className="text-4xl font-display font-bold text-primary mb-1">{(smote.after_smote.accuracy * 100).toFixed(1)}%</div>
-                <div className="text-sm text-text-muted">Accuracy</div>
-                <div className="mt-3 text-xs text-text-muted">F1: {(smote.after_smote.f1_macro * 100).toFixed(1)}%</div>
-              </div>
-            </SpotlightCard>
-          </div>
-        </FadeInSection>
-      )}
-
-      {/* Feature Importance */}
-      {Object.keys(featureImp).length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Model Comparison Chart */}
         <FadeInSection>
-          <SpotlightCard>
-            <h3 className="text-lg font-semibold text-white mb-4">Feature Importance</h3>
+          <SpotlightCard className="h-full">
+            <h3 className="text-xl font-bold text-white mb-6">Train vs Test R² Comparison</h3>
             <Plot
-              data={Object.entries(featureImp).map(([model, features]) => {
-                const top = (features || []).slice(0, 8)
-                const colorMap = { 'Random Forest': COLORS.teal, XGBoost: COLORS.blue, LightGBM: COLORS.purple, CatBoost: COLORS.warning, AdaBoost: COLORS.red }
-                return {
-                  y: top.map(f => f.feature).reverse(),
-                  x: top.map(f => f.importance).reverse(),
-                  type: 'bar', orientation: 'h', name: model,
-                  marker: { color: colorMap[model] || COLORS.white, opacity: 0.8 },
-                }
-              })}
-              layout={{ ...PLOTLY_LAYOUT, barmode: 'group', margin: { t: 20, r: 20, b: 50, l: 200 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Importance' }, legend: { ...PLOTLY_LAYOUT.legend, x: 0.5, y: 1.15, orientation: 'h' }, height: 380 }}
+              data={[
+                { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => Math.max(0, m.train_r2)), type: 'bar', name: 'Train R²', marker: { color: 'rgba(68, 138, 255, 0.7)' } },
+                { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => Math.max(0, m.test_r2)), type: 'bar', name: 'Test R²', marker: { color: 'rgba(0, 230, 118, 0.9)' } },
+              ]}
+              layout={{ ...PLOTLY_LAYOUT, barmode: 'group', yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'R² Score (Clamped to ≥0)', range: [0, 1.05] }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 400 }}
               config={PLOTLY_CONFIG}
               className="w-full"
             />
           </SpotlightCard>
+        </FadeInSection>
+
+        {/* Feature Importance */}
+        {Object.keys(featureImp).length > 0 && (
+          <FadeInSection delay={0.15}>
+            <SpotlightCard className="h-full">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                <h3 className="text-xl font-bold text-white">Feature Importance</h3>
+                <div className="relative">
+                  <select 
+                    value={selectedModel} 
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="appearance-none bg-white/5 border border-white/10 text-white text-sm rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer hover:bg-white/10"
+                  >
+                    {Object.keys(featureImp).map(m => (
+                      <option key={m} value={m} className="bg-card text-white">{m}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                </div>
+              </div>
+              
+              {featureImp[selectedModel] ? (
+                <Plot
+                  data={[{
+                    y: featureImp[selectedModel].map(f => f.feature.replace(/_/g, ' ')).reverse(),
+                    x: featureImp[selectedModel].map(f => f.importance).reverse(),
+                    type: 'bar', orientation: 'h',
+                    marker: { color: 'rgba(179, 136, 255, 0.8)', line: { width: 0 } },
+                    hovertemplate: '<b>%{y}</b><br>Importance: %{x:.4f}<extra></extra>'
+                  }]}
+                  layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 180 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Relative Importance' }, height: 350 }}
+                  config={PLOTLY_CONFIG}
+                  className="w-full"
+                />
+              ) : (
+                <div className="h-[350px] flex items-center justify-center text-text-muted">No feature importance data for this model</div>
+              )}
+            </SpotlightCard>
+          </FadeInSection>
+        )}
+      </div>
+
+      {/* SMOTE Before/After */}
+      {smote.before_smote && (
+        <FadeInSection>
+          <div className="p-8 rounded-2xl bg-gradient-to-r from-card via-[#1e1a3b] to-card border border-purple-500/20 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px]" />
+            <h3 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+              <div className="p-2 bg-purple-500/20 rounded-xl"><Zap size={24} className="text-purple-400" /></div>
+              Synthetic Minority Over-sampling (SMOTE)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-8 items-center">
+              <div className="text-center p-6 bg-black/20 rounded-xl border border-white/5">
+                <div className="text-sm uppercase tracking-widest text-text-muted font-bold mb-4">Before SMOTE</div>
+                <div className="text-5xl font-display font-bold text-white mb-2">{(smote.before_smote.accuracy * 100).toFixed(1)}<span className="text-2xl text-text-muted">%</span></div>
+                <div className="text-sm text-text-muted font-medium mb-6">Test Accuracy</div>
+                <div className="grid grid-cols-3 gap-2 text-xs border-t border-white/10 pt-4">
+                  <div><div className="text-text-muted mb-1">Low</div><div className="font-bold">{smote.before_smote.class_distribution.Low || 0}</div></div>
+                  <div><div className="text-text-muted mb-1">Med</div><div className="font-bold">{smote.before_smote.class_distribution.Medium || 0}</div></div>
+                  <div><div className="text-text-muted mb-1">High</div><div className="font-bold">{smote.before_smote.class_distribution.High || 0}</div></div>
+                </div>
+              </div>
+
+              <div className="flex justify-center hidden md:flex">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-white/10 to-purple-500/30 flex items-center justify-center border border-purple-500/30 animate-pulse">
+                  <ArrowRight size={20} className="text-purple-300" />
+                </div>
+              </div>
+
+              <div className="text-center p-6 bg-purple-900/20 rounded-xl border border-purple-500/30 shadow-[0_0_30px_rgba(168,85,247,0.15)] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none" />
+                <div className="text-sm uppercase tracking-widest text-purple-400 font-bold mb-4">After SMOTE</div>
+                <div className="text-5xl font-display font-bold text-purple-400 mb-2 glow-text" style={{ textShadow: '0 0 20px rgba(168,85,247,0.4)' }}>{(smote.after_smote.accuracy * 100).toFixed(1)}<span className="text-2xl text-purple-400/50">%</span></div>
+                <div className="text-sm text-purple-300/80 font-medium mb-6">Test Accuracy</div>
+                <div className="grid grid-cols-3 gap-2 text-xs border-t border-purple-500/20 pt-4 text-purple-100">
+                  <div><div className="text-purple-300/60 mb-1">Low</div><div className="font-bold">{smote.after_smote.class_distribution.Low || 0}</div></div>
+                  <div><div className="text-purple-300/60 mb-1">Med</div><div className="font-bold">{smote.after_smote.class_distribution.Medium || 0}</div></div>
+                  <div><div className="text-purple-300/60 mb-1">High</div><div className="font-bold">{smote.after_smote.class_distribution.High || 0}</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </FadeInSection>
       )}
     </section>
@@ -766,49 +822,50 @@ const MLInsights = ({ data }) => {
 const ReforestationPlan = ({ data }) => {
   const plan = data.reforestationPlan
   const o = data.overview
-  const forecasts = data.predictions?.state_forecasts || {}
   if (!plan || !o) return null
 
-  const sorted = [...plan].filter(s => s.reforestation_needed_ha > 0).sort((a, b) => b.priority_score - a.priority_score)
+  // Filter out states that don't need reforestation and sort
+  const sorted = [...plan].filter(s => s.projected_loss_avoidance_ha > 0).sort((a, b) => b.priority_score - a.priority_score)
   const priorityColors = { Critical: COLORS.red, High: COLORS.warning, Moderate: COLORS.blue, Low: COLORS.green }
 
   return (
-    <section id="plan" className="py-24">
-      <SectionHeader icon={Target} label="Action Plan" title="Strategic Reforestation Blueprint" subtitle="AI-prioritized regions requiring immediate intervention to reverse deforestation damage." color="text-primary" />
+    <section id="plan" className="py-24 relative">
+      <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
+      <SectionHeader icon={Target} label="Action Plan" title="Strategic Reforestation Blueprint" subtitle="AI-prioritized regions requiring immediate intervention to maximize carbon sequestration and reverse damage." color="text-primary" />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {[
-          { label: 'Total Reforestation Needed', value: fmtHa(o.total_reforestation_needed_ha), detail: `Across ${o.num_states} states by 2030`, color: 'text-primary', icon: Trees },
+          { label: 'Total Avoidance Target', value: fmtHa(o.total_projected_loss_avoidance_ha), detail: `Across ${o.num_states} states by 2030`, color: 'text-primary', icon: Trees },
           { label: 'Carbon Savings Potential', value: `${fmt(o.total_carbon_savings_Mg)} Mg`, detail: 'CO₂ prevented from atmosphere', color: 'text-secondary', icon: Leaf },
-          { label: 'Urgent States', value: `${o.num_critical_states + o.num_high_states}`, detail: 'Critical + High priority zones', color: 'text-danger', icon: AlertTriangle },
+          { label: 'Urgent Priority States', value: `${o.num_critical_states + o.num_high_states}`, detail: 'Critical + High priority zones', color: 'text-danger', icon: AlertTriangle },
         ].map((item, i) => (
           <FadeInSection key={i} delay={i * 0.1}>
-            <SpotlightCard>
-              <div className="flex items-center gap-2 mb-2">
-                <item.icon size={16} className={item.color} />
-                <span className="text-xs font-medium text-text-muted">{item.label}</span>
+            <SpotlightCard className="h-full bg-gradient-to-br from-card to-white/[0.02]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-xl bg-white/5 border border-white/10`}><item.icon size={20} className={item.color} /></div>
+                <span className="text-sm font-bold uppercase tracking-wider text-text-muted">{item.label}</span>
               </div>
-              <div className={`text-3xl font-display font-bold ${item.color}`}>{item.value}</div>
-              <div className="text-xs text-text-muted mt-1">{item.detail}</div>
+              <div className={`text-4xl font-display font-bold ${item.color} mb-2`}>{item.value}</div>
+              <div className="text-sm text-text-muted">{item.detail}</div>
             </SpotlightCard>
           </FadeInSection>
         ))}
       </div>
 
       {/* Priority Chart */}
-      <FadeInSection className="mb-8">
+      <FadeInSection className="mb-10">
         <SpotlightCard>
-          <h3 className="text-lg font-semibold text-white mb-4">Fuzzy Logic Priority Scores by State</h3>
+          <h3 className="text-xl font-bold text-white mb-6">Fuzzy Logic Priority Scores by State</h3>
           <Plot
             data={[{
               y: sorted.map(s => s.name).reverse(),
               x: sorted.map(s => s.priority_score).reverse(),
               type: 'bar', orientation: 'h',
-              marker: { color: sorted.map(s => priorityColors[s.priority_label] || COLORS.blue).reverse(), opacity: 0.85 },
+              marker: { color: sorted.map(s => priorityColors[s.priority_label] || COLORS.blue).reverse(), opacity: 0.9, line: {width: 0} },
               hovertemplate: '<b>%{y}</b><br>Score: %{x:.1f}/100<extra></extra>',
             }]}
-            layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Priority Score (0-100)', range: [0, 100] }, height: Math.max(400, sorted.length * 28) }}
+            layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Priority Score (0-100)', range: [0, 100] }, height: Math.max(400, sorted.length * 30) }}
             config={PLOTLY_CONFIG}
             className="w-full"
           />
@@ -817,31 +874,40 @@ const ReforestationPlan = ({ data }) => {
 
       {/* Reforestation Table */}
       <FadeInSection>
-        <SpotlightCard>
-          <h3 className="text-lg font-semibold text-white mb-4">Detailed Reforestation Requirements</h3>
-          <div className="overflow-x-auto">
+        <SpotlightCard className="p-0 overflow-hidden">
+          <div className="p-6 border-b border-white/10 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h3 className="text-xl font-bold text-white">Detailed Intervention Requirements</h3>
+            <div className="flex items-center gap-2 text-sm text-text-muted bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+              <Filter size={14} /> Showing {sorted.length} states requiring action
+            </div>
+          </div>
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-text-muted border-b border-white/10">
-                  <th className="py-3 pr-3">#</th>
-                  <th className="py-3">State</th>
-                  <th className="py-3">Priority</th>
-                  <th className="py-3 text-right">Score</th>
-                  <th className="py-3 text-right">Reforestation Needed</th>
-                  <th className="py-3 text-right">Carbon Savings</th>
-                  <th className="py-3 text-right">Current Loss Rate</th>
+                <tr className="text-left text-text-muted border-b border-white/10 bg-black/40 uppercase tracking-wider text-[11px] font-bold">
+                  <th className="py-4 pl-6 pr-3">#</th>
+                  <th className="py-4">State</th>
+                  <th className="py-4 text-center">Priority</th>
+                  <th className="py-4 text-right">Score</th>
+                  <th className="py-4 text-right">Loss Avoidance Target</th>
+                  <th className="py-4 text-right">Carbon Savings</th>
+                  <th className="py-4 text-right pr-6">Current Loss Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((s, i) => (
-                  <tr key={s.name} className="border-b border-white/3 hover:bg-white/3 transition-colors">
-                    <td className="py-3 pr-3"><span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span></td>
-                    <td className="py-3 font-semibold text-white">{s.name}</td>
-                    <td className="py-3"><span className={`${badgeClass(s.priority_label)} text-xs px-2.5 py-1 rounded-full font-semibold`}>{s.priority_label}</span></td>
-                    <td className="py-3 text-right"><PriorityBar score={s.priority_score} label={s.priority_label} /></td>
-                    <td className="py-3 text-right font-semibold text-primary">{fmtHa(Math.max(0, s.reforestation_needed_ha))}</td>
-                    <td className="py-3 text-right text-text-muted">{fmt(Math.max(0, s.carbon_savings_Mg))} Mg</td>
-                    <td className="py-3 text-right text-text-muted">{fmtHa(s.current_loss_rate)}/yr</td>
+                  <tr key={s.name} className="border-b border-white/5 hover:bg-white/5 group">
+                    <td className="py-4 pl-6 pr-3">
+                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger border border-danger/30' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span>
+                    </td>
+                    <td className="py-4 font-bold text-white text-base">{s.name}</td>
+                    <td className="py-4 text-center">
+                      <span className={`${badgeClass(s.priority_label)} text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider shadow-sm`}>{s.priority_label}</span>
+                    </td>
+                    <td className="py-4 text-right flex justify-end items-center h-full pt-6"><PriorityBar score={s.priority_score} label={s.priority_label} /></td>
+                    <td className="py-4 text-right font-bold text-primary text-base glow-text group-hover:scale-105 transition-transform origin-right">{fmtHa(Math.max(0, s.projected_loss_avoidance_ha))}</td>
+                    <td className="py-4 text-right text-text-muted font-medium">{fmt(Math.max(0, s.carbon_savings_Mg))} Mg</td>
+                    <td className="py-4 text-right text-text-muted pr-6">{fmtHa(s.current_loss_rate)}/yr</td>
                   </tr>
                 ))}
               </tbody>
@@ -857,20 +923,27 @@ const ReforestationPlan = ({ data }) => {
 // FOOTER
 // ============================================================================
 const Footer = () => (
-  <footer className="border-t border-white/5 py-12 mt-16">
-    <div className="max-w-7xl mx-auto px-6 text-center">
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-          <Trees size={16} className="text-background" />
+  <footer className="border-t border-white/10 py-16 mt-16 bg-black/40 relative overflow-hidden">
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+    <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_15px_rgba(0,230,118,0.3)]">
+          <Trees size={20} className="text-background" />
         </div>
-        <span className="font-display font-bold text-white">ReForest AI</span>
+        <span className="font-display font-bold text-2xl text-white tracking-tight">ReForest AI</span>
       </div>
-      <p className="text-sm text-text-muted mb-2">
-        ML-powered reforestation analysis for India · Data: Global Forest Watch · ISFR 2023
+      <p className="text-base text-text-muted mb-4 max-w-xl mx-auto">
+        Advanced machine learning models predicting deforestation patterns and optimizing reforestation strategies for India.
       </p>
-      <p className="text-xs text-text-muted/50">
+      <div className="flex items-center justify-center gap-4 text-sm text-text-muted/60 mb-8">
+        <span>Data: Global Forest Watch</span>
+        <span>&bull;</span>
+        <span>ISFR 2023</span>
+      </div>
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-text-muted/80">
+        <Brain size={14} className="text-primary" />
         Built with Ensemble Learning, Fuzzy Logic, SMOTE, and Time-Series Forecasting
-      </p>
+      </div>
     </div>
   </footer>
 )
@@ -881,21 +954,23 @@ const Footer = () => (
 function App() {
   const [appData, setAppData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [overview, timeline, states, predictions, modelPerf, reforestPlan] = await Promise.all([
-          fetch('/api/overview').then(r => r.json()),
-          fetch('/api/timeline').then(r => r.json()),
-          fetch('/api/states').then(r => r.json()),
-          fetch('/api/predictions').then(r => r.json()),
-          fetch('/api/model-performance').then(r => r.json()),
-          fetch('/api/reforestation-plan').then(r => r.json()),
+          fetch('/api/overview').then(r => { if (!r.ok) throw new Error('Overview failed'); return r.json() }),
+          fetch('/api/timeline').then(r => { if (!r.ok) throw new Error('Timeline failed'); return r.json() }),
+          fetch('/api/states').then(r => { if (!r.ok) throw new Error('States failed'); return r.json() }),
+          fetch('/api/predictions').then(r => { if (!r.ok) throw new Error('Predictions failed'); return r.json() }),
+          fetch('/api/model-performance').then(r => { if (!r.ok) throw new Error('Model perf failed'); return r.json() }),
+          fetch('/api/reforestation-plan').then(r => { if (!r.ok) throw new Error('Plan failed'); return r.json() }),
         ])
         setAppData({ overview, timeline, states, predictions, modelPerformance: modelPerf, reforestationPlan: reforestPlan })
       } catch (err) {
         console.error("Failed to fetch data:", err)
+        setError(err.message || String(err))
       } finally {
         setLoading(false)
       }
@@ -903,37 +978,54 @@ function App() {
     fetchData()
   }, [])
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-danger flex-col gap-4">
+        <AlertTriangle size={48} />
+        <h2 className="text-2xl font-bold">Failed to load dashboard data</h2>
+        <p className="text-white/70">{error}</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary/20 text-primary rounded-lg mt-4">Retry</button>
+      </div>
+    )
+  }
+
   if (loading || !appData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-6"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-8"
         >
           <div className="relative">
-            <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            <Trees size={20} className="text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+            <div className="w-24 h-24 border-4 border-white/10 border-t-primary rounded-full animate-spin relative z-10" />
+            <Trees size={32} className="text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20" />
           </div>
-          <div className="text-xl font-display font-bold text-primary">Loading Reforestation Intelligence</div>
-          <div className="text-sm text-text-muted">Analyzing satellite data & ML predictions...</div>
+          <div className="text-center">
+            <div className="text-2xl font-display font-bold text-white mb-2">Loading Reforestation Intelligence</div>
+            <div className="text-sm text-text-muted flex items-center justify-center gap-2">
+              <span className="w-2 h-2 bg-primary rounded-full animate-ping" />
+              Analyzing satellite data & ML predictions...
+            </div>
+          </div>
         </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden">
+    <div className="min-h-screen relative overflow-x-hidden selection:bg-primary/30 selection:text-white">
       {/* Background gradient orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[10%] left-[10%] w-[500px] h-[500px] bg-primary/3 rounded-full blur-[150px]" />
-        <div className="absolute top-[60%] right-[5%] w-[400px] h-[400px] bg-purple-500/3 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[10%] left-[30%] w-[300px] h-[300px] bg-cyan-400/3 rounded-full blur-[100px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px]" />
+        <div className="absolute top-[40%] right-[-5%] w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[150px]" />
+        <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-cyan-400/5 rounded-full blur-[150px]" />
       </div>
 
       <Navbar />
 
-      <main className="relative z-10 px-6 md:px-12 lg:px-24 max-w-7xl mx-auto">
+      <main className="relative z-10 px-6 md:px-12 lg:px-24 max-w-[1400px] mx-auto">
         <HeroDashboard data={appData} />
         <PastAnalysis data={appData} />
         <PresentState data={appData} />
