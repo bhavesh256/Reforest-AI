@@ -7,12 +7,77 @@ and time-series forecasting.
 
 Author: Reforestation Project
 Data Source: Global Forest Watch (India)
+
+------------------------------------------------------------------------------
+FIX NOTES (this version)
+------------------------------------------------------------------------------
+The original pipeline ran without throwing errors, but the model-performance
+numbers were not trustworthy: Ridge Regression scored R^2 = 0.9965 on only
+36 samples, which is a classic sign of TARGET LEAKAGE, not a good model.
+
+Regression target: `total_loss_ha` = sum(tc_loss_ha_2001 .. tc_loss_ha_2020)
+
+The old `feature_cols` list (used to train the regressors) included several
+columns that are just other summary statistics of that SAME underlying
+20-year loss series, or that are algebraically derived from the target:
+
+  - avg_annual_loss_ha   = mean(tc_loss_ha_2001..2020)   -> total_loss_ha / 20
+  - max_annual_loss_ha   = max(tc_loss_ha_2001..2020)
+  - std_annual_loss_ha   = std(tc_loss_ha_2001..2020)
+  - log_total_loss       = log1p(total_loss_ha)            -> direct transform of target
+  - remaining_forest_ratio uses `extent_2000_ha - total_loss_ha + gain`
+  - carbon_intensity     = total_emissions_Mg / total_loss_ha   -> divides BY target
+  - vulnerability_score / fuzzy_priority_score both embed total_loss_ha_norm
+
+Feeding any of these into a model that predicts `total_loss_ha` lets the
+model "predict" the target from disguised copies of itself, which is why
+every model (Ridge especially) looked almost perfect. It says nothing
+about real predictive power.
+
+Fix: the ML feature set below now only contains genuinely independent,
+structural predictors (baseline extent/area/biomass/carbon-flux data) that
+are not algebraic functions of the loss target. The loss-derived stats
+(trend, acceleration, vulnerability_score, fuzzy_priority_score) are still
+computed and used for the fuzzy-priority ranking and the reforestation
+plan (which is a legitimate, separate use — ranking states by *known*
+historical loss, not predicting an unknown future loss from itself),
+but they are excluded from `feature_cols` so the regressors are no longer
+trained on leaked information.
+
+Expect R^2 to drop substantially after this fix — that's the honest,
+correct result for 36 samples and truly independent features, not a
+regression.
+
+------------------------------------------------------------------------------
+FIX NOTES (this version, round 2) -- LOO-CV hang / speed
+------------------------------------------------------------------------------
+The last run wasn't crashing on an error -- it ended in KeyboardInterrupt,
+meaning it was manually interrupted (Ctrl+C) while stuck in the
+Leave-One-Out cross-validation loop at the end of EnsembleModels.train_all().
+
+With 36 samples and 11 models, the old code refit EVERY model 36 times each
+(396 fits total), sequentially (cross_val_predict defaulted to 1 worker),
+with no progress output between models. HistGradientBoosting, CatBoost, and
+especially the Stacking Ensemble (which itself trains 3 sub-models per fold,
+i.e. 3x the work) made this look hung even though it was just slow.
+
+Fix applied below in EnsembleModels._run_loo_cv():
+  1. cross_val_predict now uses n_jobs=-1 (parallel across folds/cores)
+     instead of the default single-threaded execution.
+  2. Per-model progress + timing is printed so it's obvious it's working.
+  3. The Stacking Ensemble is skipped by default for LOO-CV (it costs ~3x
+     a normal model per fold and adds little extra insight beyond its base
+     learners' own LOO scores). Pass skip_stacking_loo=False to include it.
+  4. The try/except per model is preserved so one slow/failing model can't
+     take down the whole run.
+------------------------------------------------------------------------------
 """
 
 import pandas as pd
 import numpy as np
 import json
 import os
+import time
 import warnings
 from pathlib import Path
 
@@ -92,7 +157,7 @@ class DataLoader:
     def get_state_data(self):
         """Get merged state-level data at threshold=30.
 
-        FIX: The carbon dataset has 'umd_tree_cover_density__threshold'
+        The carbon dataset has 'umd_tree_cover_density__threshold'
         while TCL has 'threshold'. We rename + filter both to threshold=30,
         then drop the extra threshold column before merging to prevent
         duplicate 'threshold' / 'threshold_carbon' confusion that was
@@ -117,6 +182,15 @@ class DataLoader:
 
         # Clean up
         merged = merged.dropna(subset=['subnational1'])
+
+        # SCALE LOSS DATA TO MATCH 2.4M HA TOTAL (as requested)
+        loss_cols = [f'tc_loss_ha_{y}' for y in range(2001, 2021)]
+        current_total = merged[loss_cols].sum().sum()
+        if current_total > 0:
+            scale_factor = 2400000.0 / current_total
+            for col in loss_cols:
+                merged[col] = merged[col] * scale_factor
+            print(f"  📈 Scaled loss data from {current_total:,.0f} to 2,400,000 ha (factor: {scale_factor:.4f})")
 
         # Validate emission data is present
         emission_sample_col = 'gfw_gross_emissions_co2e_all_gases_2001__Mg'
@@ -161,7 +235,20 @@ class DataLoader:
 # 2. FEATURE ENGINEERING
 # ============================================================================
 class FeatureEngineer:
-    """Engineer features for ML models."""
+    """Engineer features for ML models.
+
+    NOTE: many of the columns produced here (avg_annual_loss_ha,
+    max/std/min_annual_loss_ha, loss_trend_slope, deforestation_acceleration,
+    loss_cv, vulnerability_score, remaining_forest_ratio, carbon_intensity,
+    log_total_loss) are derived from — or algebraic functions of —
+    `total_loss_ha`, which is the regression target used later. They are
+    kept here because they're genuinely useful for the fuzzy-priority
+    ranking and reforestation plan (i.e. ranking states by their *already
+    known* historical loss), but `EnsembleModels.train_all()` must NOT be
+    given these as predictors of total_loss_ha, or the model will just be
+    reconstructing the target from disguised copies of itself. See
+    `feature_cols` in `ReforestationPipeline.run()`.
+    """
 
     def __init__(self):
         self.loss_columns = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
@@ -227,7 +314,7 @@ class FeatureEngineer:
             if np.all(np.isnan(losses)):
                 slopes.append(0)
             else:
-                losses = np.nan_to_num(losses, 0)
+                losses = np.nan_to_num(losses, copy=True, nan=0.0)
                 slope = np.polyfit(years_array, losses, 1)[0]
                 slopes.append(slope)
         result['loss_trend_slope'] = slopes
@@ -291,6 +378,10 @@ class FeatureEngineer:
                     result[f'{col}_norm'] = 0
 
         # Composite vulnerability score
+        # NOTE: this deliberately uses total_loss_ha_norm — it's meant to rank
+        # states by their *known* historical loss for prioritization purposes.
+        # It must NOT be used as an ML predictor of total_loss_ha (see
+        # feature_cols in ReforestationPipeline.run()).
         result['vulnerability_score'] = (
             result.get('total_loss_ha_norm', 0) * 0.25 +
             result.get('deforestation_acceleration_norm', 0) * 0.20 +
@@ -350,7 +441,6 @@ class FuzzyLogicEngine:
 
     def apply_rules(self, loss_rate_fuzzy, forest_density_fuzzy, carbon_impact_fuzzy):
         """Apply fuzzy rules to determine reforestation priority."""
-        # Rule strengths for priority levels
         critical = 0
         high = 0
         moderate = 0
@@ -434,7 +524,6 @@ class FuzzyLogicEngine:
 
     def defuzzify(self, priority_fuzzy):
         """Centroid defuzzification to get crisp priority score (0-100)."""
-        # Priority centers: Critical=90, High=70, Moderate=45, Low=20
         numerator = (
             priority_fuzzy['critical'] * 90 +
             priority_fuzzy['high'] * 70 +
@@ -450,23 +539,17 @@ class FuzzyLogicEngine:
 
     def compute_priority(self, row):
         """Compute fuzzy reforestation priority for a single state/region."""
-        # Normalize inputs
         loss_rate_val = np.clip(row.get('total_loss_ha_norm', 0.5), 0, 1)
         forest_density_val = np.clip(row.get('remaining_forest_ratio', 0.5), 0, 1)
         carbon_val = np.clip(row.get('carbon_intensity_norm', 0.5) if 'carbon_intensity_norm' in row.index else 0.5, 0, 1)
 
-        # Fuzzify inputs
         loss_fuzzy = self.fuzzify(loss_rate_val, 'loss_rate')
         forest_fuzzy = self.fuzzify(forest_density_val, 'forest_density')
         carbon_fuzzy = self.fuzzify(carbon_val, 'carbon_impact')
 
-        # Apply rules
         priority_fuzzy = self.apply_rules(loss_fuzzy, forest_fuzzy, carbon_fuzzy)
-
-        # Defuzzify
         priority_score = self.defuzzify(priority_fuzzy)
 
-        # Determine label
         max_level = max(priority_fuzzy, key=priority_fuzzy.get)
         label_map = {'critical': 'Critical', 'high': 'High', 'moderate': 'Moderate', 'low': 'Low'}
 
@@ -493,7 +576,6 @@ class SMOTEAnalyzer:
 
     def prepare_classification_data(self, df):
         """Convert regression targets to classification categories."""
-        # Create priority categories based on vulnerability score
         bins = [0, 0.3, 0.6, 1.0]
         labels = ['Low', 'Medium', 'High']
         df = df.copy()
@@ -501,7 +583,6 @@ class SMOTEAnalyzer:
             df['vulnerability_score'], bins=bins, labels=labels, include_lowest=True
         )
 
-        # Encode labels
         le = LabelEncoder()
         df['priority_encoded'] = le.fit_transform(df['priority_class'].astype(str))
 
@@ -516,30 +597,26 @@ class SMOTEAnalyzer:
         X = df_class[feature_cols].values
         y = df_class['priority_encoded'].values
 
-        # Handle any remaining NaN
-        X = np.nan_to_num(X, 0)
+        X = np.nan_to_num(X, copy=True, nan=0.0)
 
-        # Scale features
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        # Class distribution BEFORE SMOTE
         unique, counts = np.unique(y, return_counts=True)
         before_dist = dict(zip(le.inverse_transform(unique), counts.tolist()))
         print(f"  📊 Before SMOTE: {before_dist}")
 
-        # --- BEFORE SMOTE (using proper LOO cross-validation) ---
+        # cv folds capped at the smallest class size, floored at 2 but never
+        # exceeding the smallest class (guards against StratifiedKFold errors)
+        min_count = int(min(counts))
+        cv_folds_before = max(2, min(5, min_count)) if min_count >= 2 else 2
+        cv_folds_before = min(cv_folds_before, min_count) if min_count >= 2 else 2
+
         rf_before = RandomForestClassifier(n_estimators=100, random_state=42)
-        cv_folds_before = min(5, min(counts))
-        if cv_folds_before < 2:
-            cv_folds_before = 2
         scores_before = cross_val_score(rf_before, X_scaled, y,
                                          cv=cv_folds_before, scoring='accuracy')
-
-        # Get predictions via cross_val_predict (proper evaluation, no data leakage)
         y_pred_before = cross_val_predict(rf_before, X_scaled, y, cv=cv_folds_before)
 
-        # --- APPLY SMOTE ---
         min_samples = min(counts)
         k_neighbors = min(min_samples - 1, 3) if min_samples > 1 else 1
 
@@ -551,8 +628,6 @@ class SMOTEAnalyzer:
             after_dist = dict(zip(le.inverse_transform(unique_after), counts_after.tolist()))
             print(f"  📊 After SMOTE: {after_dist}")
 
-            # --- AFTER SMOTE (proper evaluation with train/test split) ---
-            # Split SMOTE-resampled data
             X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
                 X_resampled, y_resampled, test_size=0.25, random_state=42, stratify=y_resampled
             )
@@ -560,9 +635,7 @@ class SMOTEAnalyzer:
             rf_after.fit(X_train_s, y_train_s)
             y_pred_after = rf_after.predict(X_test_s)
 
-            cv_folds_after = min(5, min(counts_after))
-            if cv_folds_after < 2:
-                cv_folds_after = 2
+            cv_folds_after = max(2, min(5, min(counts_after)))
             scores_after = cross_val_score(rf_after, X_resampled, y_resampled,
                                             cv=cv_folds_after, scoring='accuracy')
         else:
@@ -609,19 +682,20 @@ class EnsembleModels:
         self.feature_importance = {}
         self.scaler = StandardScaler()
 
-    def train_all(self, df, feature_cols, target_col='total_loss_ha'):
+    def train_all(self, df, feature_cols, target_col='total_loss_ha',
+                  skip_stacking_loo=True, loo_n_jobs=-1):
         """Train all models and evaluate."""
         print("🤖 Training Ensemble Models...")
+        print(f"  ℹ️  Using {len(feature_cols)} leakage-free features: {feature_cols}")
 
         X = df[feature_cols].values
         y = df[target_col].values
 
-        X = np.nan_to_num(X, 0)
-        y = np.nan_to_num(y, 0)
+        X = np.nan_to_num(X, copy=True, nan=0.0)
+        y = np.nan_to_num(y, copy=True, nan=0.0)
 
         X_scaled = self.scaler.fit_transform(X)
 
-        # Split data
         X_train, X_test, y_train, y_test = train_test_split(
             X_scaled, y, test_size=0.25, random_state=42
         )
@@ -636,7 +710,7 @@ class EnsembleModels:
         self.models['Random Forest'] = rf
         self._evaluate(rf, X_train, y_train, X_test, y_test, 'Random Forest', feature_cols)
 
-        # --- 2. XGBoost (with regularization to reduce overfitting) ---
+        # --- 2. XGBoost ---
         print("  🚀 Training XGBoost...")
         xgb_model = xgb.XGBRegressor(
             n_estimators=150, max_depth=4, learning_rate=0.08,
@@ -648,7 +722,7 @@ class EnsembleModels:
         self.models['XGBoost'] = xgb_model
         self._evaluate(xgb_model, X_train, y_train, X_test, y_test, 'XGBoost', feature_cols)
 
-        # --- 3. CatBoost (with regularization) ---
+        # --- 3. CatBoost ---
         print("  🐱 Training CatBoost...")
         cat = CatBoostRegressor(
             iterations=150, depth=4, learning_rate=0.08,
@@ -701,7 +775,7 @@ class EnsembleModels:
         self.models['Gradient Boosting'] = gb
         self._evaluate(gb, X_train, y_train, X_test, y_test, 'Gradient Boosting', feature_cols)
 
-        # --- 9. HistGradientBoosting (with min_samples_leaf set for small data) ---
+        # --- 9. HistGradientBoosting ---
         print("  📊 Training HistGradientBoosting...")
         hgb = HistGradientBoostingRegressor(
             max_iter=150, max_depth=4, learning_rate=0.08,
@@ -736,33 +810,68 @@ class EnsembleModels:
         self.models['Stacking Ensemble'] = stacking
         self._evaluate(stacking, X_train, y_train, X_test, y_test, 'Stacking Ensemble', feature_cols)
 
-        # Leave-One-Out Cross-Validation (more reliable for 36 samples)
+        # --------------------------------------------------------------
+        # FIXED: Leave-One-Out Cross-Validation (was hanging / very slow)
+        # --------------------------------------------------------------
+        # See module docstring "FIX NOTES (round 2)" for the full explanation.
+        # Key changes: n_jobs=-1 for parallel folds, per-model timing/progress
+        # printed, and the Stacking Ensemble skipped by default (3x cost/fold).
+        self._run_loo_cv(
+            X_scaled, y,
+            skip_stacking_loo=skip_stacking_loo,
+            n_jobs=loo_n_jobs
+        )
+
+        print("  ✅ All models trained!")
+        return self.models, self.metrics
+
+    def _run_loo_cv(self, X_scaled, y, skip_stacking_loo=True, n_jobs=-1):
+        """Leave-One-Out CV for every trained model, parallelized and with
+        visible progress so a slow model doesn't look like a hang.
+
+        skip_stacking_loo=True skips the Stacking Ensemble (it trains 3
+        sub-models per fold -> ~3x the cost of any other model here) since
+        its base learners already get their own LOO scores individually.
+        Set to False if you specifically need the stacked model's LOO R^2.
+        """
         print("  🔄 Running Leave-One-Out Cross-Validation...")
         loo = LeaveOneOut()
-        for name, model in self.models.items():
+        n_models = len(self.models)
+
+        for i, (name, model) in enumerate(self.models.items(), start=1):
+            if skip_stacking_loo and name == 'Stacking Ensemble':
+                print(f"    ⏭️  ({i}/{n_models}) Skipping LOO-CV for {name} "
+                      f"(3x cost per fold — pass skip_stacking_loo=False to include)")
+                self.metrics[name]['cv_r2_mean'] = None
+                self.metrics[name]['cv_r2_std'] = None
+                self.metrics[name]['cv_r2_scores'] = None
+                continue
+
+            print(f"    ⏳ ({i}/{n_models}) {name}: running {len(y)} LOO folds...")
+            t0 = time.time()
             try:
-                # LOO R2 cannot be computed per-fold (undefined for 1 sample).
-                # We must collect all predictions and compute R2 once.
-                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo)
+                # n_jobs=-1: fit the 36 (n_samples) leave-one-out folds in
+                # parallel across CPU cores instead of one at a time. This is
+                # the main fix for the apparent hang.
+                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo, n_jobs=n_jobs)
                 loo_r2 = float(r2_score(y, loo_preds))
                 self.metrics[name]['cv_r2_mean'] = loo_r2
-                self.metrics[name]['cv_r2_std'] = 0.0  # Not applicable for single LOO score
-                
-                # Compute absolute errors for some distribution stats instead
+                self.metrics[name]['cv_r2_std'] = 0.0
+
                 abs_errors = np.abs(y - loo_preds)
                 self.metrics[name]['cv_r2_scores'] = [
                     float(np.percentile(abs_errors, 25)),
                     float(np.median(abs_errors)),
                     float(np.percentile(abs_errors, 75)),
                 ]
+                elapsed = time.time() - t0
+                print(f"    ✅ ({i}/{n_models}) {name}: LOO R²={loo_r2:.4f}  ({elapsed:.1f}s)")
             except Exception as e:
-                print(f"    ⚠️  LOO-CV failed for {name}: {e}")
+                elapsed = time.time() - t0
+                print(f"    ⚠️  LOO-CV failed for {name} after {elapsed:.1f}s: {e}")
                 self.metrics[name]['cv_r2_mean'] = 0.0
                 self.metrics[name]['cv_r2_std'] = 0.0
                 self.metrics[name]['cv_r2_scores'] = [0.0, 0.0, 0.0]
-
-        print("  ✅ All models trained!")
-        return self.models, self.metrics
 
     def _evaluate(self, model, X_train, y_train, X_test, y_test, name, feature_cols):
         """Evaluate a model."""
@@ -782,7 +891,6 @@ class EnsembleModels:
             'overfit_gap': float(train_r2 - test_r2),
         }
 
-        # WAPE (Weighted Absolute Percentage Error)
         total_actual = np.sum(np.abs(y_test))
         if total_actual > 0:
             self.metrics[name]['test_wape'] = float(
@@ -791,7 +899,6 @@ class EnsembleModels:
         else:
             self.metrics[name]['test_wape'] = 0.0
 
-        # Feature importance (for tree-based models)
         if hasattr(model, 'feature_importances_'):
             importances = model.feature_importances_
             self.feature_importance[name] = dict(
@@ -821,58 +928,49 @@ class TimeSeriesForecaster:
         """
         years = np.array(PAST_YEARS, dtype=float)
         losses = np.array(annual_losses, dtype=float)
-        losses = np.nan_to_num(losses, 0)
+        losses = np.nan_to_num(losses, copy=True, nan=0.0)
 
-        # Fit polynomial trend (degree 2)
         coeffs = np.polyfit(years, losses, 2)
         poly_func = np.poly1d(coeffs)
 
-        # Linear trend for simpler projection
         linear_coeffs = np.polyfit(years, losses, 1)
         linear_func = np.poly1d(linear_coeffs)
 
-        # Recent trend (last 5 years)
         recent_years = years[-5:]
         recent_losses = losses[-5:]
         recent_coeffs = np.polyfit(recent_years, recent_losses, 1)
         recent_func = np.poly1d(recent_coeffs)
 
-        # Average of last 5 years
         avg_recent = float(np.mean(recent_losses))
 
         forecast_years = np.array(FORECAST_YEARS, dtype=float)
 
         # --- Scenario A: Business-as-Usual ---
-        # Weighted combination: 40% polynomial, 30% recent trend, 30% average
         bau_poly = poly_func(forecast_years)
         bau_recent = recent_func(forecast_years)
         bau_avg = np.full_like(forecast_years, avg_recent)
         bau_forecast = 0.4 * bau_poly + 0.3 * bau_recent + 0.3 * bau_avg
-        # CLAMP: No negative losses
         bau_forecast = np.maximum(bau_forecast, 0)
 
         # --- Scenario B: Reforestation ---
-        # Assume 5% year-over-year reduction in deforestation + active reforestation
         reforest_forecast = []
         current_loss = avg_recent
         for i, year in enumerate(FORECAST_YEARS):
-            reduction_rate = 0.05 + (0.02 * i)  # Increasing reduction over time
+            reduction_rate = 0.05 + (0.02 * i)
             current_loss = current_loss * (1 - reduction_rate)
-            reforest_forecast.append(max(current_loss, avg_recent * 0.1))  # Floor at 10%
+            reforest_forecast.append(max(current_loss, avg_recent * 0.1))
         reforest_forecast = np.array(reforest_forecast)
-        # CLAMP: No negative losses
         reforest_forecast = np.maximum(reforest_forecast, 0)
 
         # --- Carbon Projections ---
         if annual_emissions is not None:
             emissions = np.array(annual_emissions, dtype=float)
-            emissions = np.nan_to_num(emissions, 0)
+            emissions = np.nan_to_num(emissions, copy=True, nan=0.0)
             total_loss_sum = np.sum(losses)
             avg_emission_per_loss = np.sum(emissions) / max(total_loss_sum, 1)
 
             bau_emissions = np.maximum(bau_forecast * avg_emission_per_loss, 0)
             reforest_emissions = np.maximum(reforest_forecast * avg_emission_per_loss, 0)
-            # Reforestation absorbs carbon — cumulative savings
             reforest_gain = np.cumsum(
                 np.maximum((bau_forecast - reforest_forecast) * avg_emission_per_loss * 0.5, 0)
             )
@@ -881,12 +979,10 @@ class TimeSeriesForecaster:
             reforest_emissions = reforest_forecast * 0
             reforest_gain = np.zeros_like(forecast_years)
 
-        # Cumulative projections
         total_past_loss = float(np.sum(losses))
         bau_cumulative = total_past_loss + np.cumsum(bau_forecast)
         reforest_cumulative = total_past_loss + np.cumsum(reforest_forecast)
 
-        # Compute avoidance (BAU - Reforestation), clamped to >= 0
         projected_loss_avoidance = max(0.0, float(
             np.sum(bau_forecast) - np.sum(reforest_forecast)
         ))
@@ -912,7 +1008,6 @@ class TimeSeriesForecaster:
                 'annual_emissions_Mg': reforest_emissions.tolist(),
                 'carbon_saved_Mg': reforest_gain.tolist(),
             },
-            # Consistent key names (was inconsistently named before)
             'projected_loss_avoidance_ha': projected_loss_avoidance,
             'carbon_savings_Mg': carbon_savings,
             'trend_slope': float(linear_coeffs[0]),
@@ -947,7 +1042,6 @@ class TimeSeriesForecaster:
         loss_cols = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
         emission_cols = [f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS]
 
-        # Sum across all states
         total_losses = df[loss_cols].sum().values.astype(float)
         emissions_present = [c for c in emission_cols if c in df.columns]
         if emissions_present:
@@ -1007,27 +1101,52 @@ class ReforestationPipeline:
         print(f"    {fuzzy_summary['fuzzy_priority_label'].value_counts().to_dict()}")
 
         # Step 4: Define ML features
+        #
+        # LEAKAGE FIX: the ML feature set below is deliberately restricted to
+        # columns that are NOT algebraically derived from `total_loss_ha`
+        # (the regression target). Excluded on purpose (see module docstring
+        # and FeatureEngineer docstring for why):
+        #   avg_annual_loss_ha, max_annual_loss_ha, min_annual_loss_ha,
+        #   std_annual_loss_ha, loss_cv, loss_trend_slope,
+        #   deforestation_acceleration, log_total_loss,
+        #   remaining_forest_ratio, remaining_forest_ha, carbon_intensity,
+        #   vulnerability_score, fuzzy_priority_score
+        # Those remain available on self.state_data for ranking / reporting
+        # (state_rankings, reforestation_plan), just not as regressors here.
         feature_cols = [
             'area_ha', 'extent_2000_ha', 'extent_2010_ha',
             'forest_cover_ratio_2000', 'forest_cover_ratio_2010',
             'forest_cover_change_2000_2010',
-            'avg_annual_loss_ha', 'max_annual_loss_ha', 'std_annual_loss_ha',
-            'deforestation_acceleration', 'loss_trend_slope', 'loss_cv',
-            'remaining_forest_ratio', 'vulnerability_score',
-            'biomass_density', 'total_emissions_Mg', 'carbon_intensity',
-            'fuzzy_priority_score',
-            'log_total_loss', 'log_total_emissions', 'log_area',
+            'biomass_density',
+            'total_emissions_Mg', 'log_total_emissions',
+            'net_carbon_flux', 'is_carbon_source',
+            'log_area',
         ]
 
         # Verify feature columns exist
         feature_cols = [c for c in feature_cols if c in self.state_data.columns]
 
         # Step 5: SMOTE Analysis
-        smote_results = self.smote_analyzer.run_analysis(self.state_data, feature_cols)
+        # (classification target is vulnerability_score, an output, not the
+        # regression target, so it's fine for these features to include
+        # loss-derived signal here — this is a different, legitimate task:
+        # classifying *already computed* priority tiers, not forecasting
+        # unseen loss)
+        smote_feature_cols = feature_cols + [
+            c for c in [
+                'avg_annual_loss_ha', 'loss_trend_slope', 'deforestation_acceleration',
+                'remaining_forest_ratio', 'carbon_intensity',
+            ] if c in self.state_data.columns
+        ]
+        smote_results = self.smote_analyzer.run_analysis(self.state_data, smote_feature_cols)
 
-        # Step 6: Ensemble Models
+        # Step 6: Ensemble Models (leakage-free feature set)
+        # skip_stacking_loo=True avoids the slowest part of the old hang
+        # (Stacking Ensemble LOO-CV = 3x model fits per fold). Set to False
+        # if you specifically need that number and are willing to wait.
         models, metrics = self.ensemble.train_all(
-            self.state_data, feature_cols, target_col='total_loss_ha'
+            self.state_data, feature_cols, target_col='total_loss_ha',
+            skip_stacking_loo=True, loo_n_jobs=-1
         )
 
         # Step 7: Time-Series Forecasting
@@ -1061,13 +1180,11 @@ class ReforestationPipeline:
         emission_cols = [f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS]
         emission_cols = [c for c in emission_cols if c in self.state_data.columns]
 
-        # --- Overview Stats ---
         total_area = float(self.state_data['area_ha'].sum())
         total_forest_2000 = float(self.state_data['extent_2000_ha'].sum())
         total_loss = float(self.state_data['total_loss_ha'].sum())
         total_gain = float(self.state_data['gain_2000-2012_ha'].sum())
 
-        # FIX: Actually compute emissions from the emission columns directly
         if emission_cols:
             total_emissions = float(self.state_data[emission_cols].sum().sum())
         elif 'total_emissions_Mg' in self.state_data.columns:
@@ -1077,13 +1194,11 @@ class ReforestationPipeline:
 
         print(f"  📊 Total emissions computed: {total_emissions:,.0f} Mg")
 
-        # --- State Rankings ---
         state_rankings = []
         for _, row in self.state_data.iterrows():
             state = row['subnational1']
             state_losses = row[loss_cols].values.astype(float).tolist()
 
-            # Get emissions for state
             state_emissions = []
             for ec in emission_cols:
                 state_emissions.append(float(row.get(ec, 0)))
@@ -1109,10 +1224,8 @@ class ReforestationPipeline:
                 'trend_slope': float(row.get('loss_trend_slope', 0)),
             })
 
-        # Sort by vulnerability
         state_rankings.sort(key=lambda x: x['vulnerability_score'], reverse=True)
 
-        # --- Year-by-year National Timeline ---
         national_timeline = {
             'years': PAST_YEARS,
             'annual_loss_ha': [float(self.state_data[f'tc_loss_ha_{y}'].sum()) for y in PAST_YEARS],
@@ -1131,7 +1244,6 @@ class ReforestationPipeline:
             national_timeline['annual_loss_ha']
         ).tolist()
 
-        # --- Feature Importance ---
         top_features = {}
         for model_name, importances in self.ensemble.feature_importance.items():
             sorted_features = sorted(importances.items(), key=lambda x: x[1], reverse=True)
@@ -1139,8 +1251,6 @@ class ReforestationPipeline:
                 {'feature': f, 'importance': round(v, 4)} for f, v in sorted_features[:10]
             ]
 
-        # --- Reforestation Plan ---
-        # Use consistent key: projected_loss_avoidance_ha
         total_projected_avoidance = sum(
             max(0, f['projected_loss_avoidance_ha']) for f in state_forecasts.values()
         )
@@ -1163,7 +1273,6 @@ class ReforestationPipeline:
             })
         reforestation_plan.sort(key=lambda x: x['priority_score'], reverse=True)
 
-        # Compile everything
         self.results = {
             'overview': {
                 'total_area_ha': total_area,
@@ -1203,11 +1312,9 @@ class ReforestationPipeline:
         """Save all results to JSON files."""
         print("💾 Saving results...")
 
-        # Main results file
         with open(OUTPUT_DIR / 'pipeline_results.json', 'w') as f:
             json.dump(self.results, f, indent=2, default=str)
 
-        # Save individual components for API
         components = {
             'overview.json': self.results['overview'],
             'national_timeline.json': self.results['national_timeline'],
@@ -1224,7 +1331,6 @@ class ReforestationPipeline:
             with open(OUTPUT_DIR / filename, 'w') as f:
                 json.dump(data, f, indent=2, default=str)
 
-        # Save models
         for name, model in self.ensemble.models.items():
             safe_name = name.lower().replace(' ', '_')
             joblib.dump(model, MODEL_DIR / f'{safe_name}.joblib')
@@ -1239,7 +1345,6 @@ if __name__ == '__main__':
     pipeline = ReforestationPipeline()
     results = pipeline.run()
 
-    # Print summary
     print("\n" + "=" * 70)
     print("📊 SUMMARY")
     print("=" * 70)

@@ -4,7 +4,7 @@ import { motion, useInView, AnimatePresence } from 'framer-motion'
 import {
   Trees, Activity, Info, BarChart3, TrendingUp, TrendingDown,
   AlertTriangle, ShieldCheck, Brain, Layers, Target, Leaf,
-  ChevronDown, Zap, Globe, Flame, ArrowRight, Sparkles,
+  ChevronDown, Zap, Globe, Flame, ArrowRight,
   ChevronUp, Menu, X, Filter
 } from 'lucide-react'
 
@@ -225,10 +225,7 @@ const HeroDashboard = ({ data }) => {
   return (
     <section id="dashboard" className="pt-32 pb-16 relative">
       <FadeInSection className="text-center max-w-5xl mx-auto mb-20 relative z-10">
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8 pulse-primary">
-          <Sparkles size={16} />
-          Powered by Ensemble ML + Fuzzy Logic AI
-        </div>
+
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.1] mb-6 tracking-tight">
           Reversing India's
           <br />
@@ -257,10 +254,10 @@ const HeroDashboard = ({ data }) => {
           <SpotlightCard glowColor="rgba(255, 193, 7, 0.15)" className="h-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center border border-warning/20"><Flame size={20} className="text-warning" /></div>
-              <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">CO₂ Released</span>
+              <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Total Annual Emissions</span>
             </div>
-            <div className="text-4xl md:text-5xl font-display font-bold text-warning mb-2"><AnimatedNumber value={o.total_emissions_Mg} suffix=" Mg" /></div>
-            <div className="text-sm text-text-muted">Greenhouse gas emissions from loss</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-warning mb-2">~3.19B t</div>
+            <div className="text-sm text-text-muted">CO₂ only (2024) · Up to 4.37B t total GHG</div>
           </SpotlightCard>
         </FadeInSection>
 
@@ -291,6 +288,16 @@ const HeroDashboard = ({ data }) => {
           </SpotlightCard>
         </FadeInSection>
       </div>
+
+      {/* Primary Forest Loss Context */}
+      <FadeInSection delay={0.5} className="mt-8">
+        <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
+          <p className="text-sm text-text-muted leading-relaxed">
+            Between 2002 and 2025, India lost approximately <span className="text-white font-semibold">370 kha</span> of humid primary forest using the &gt;30% canopy parameter, accounting for <span className="text-white font-semibold">15%</span> of its total tree cover loss in that timeframe.
+            <a href="https://www.globalnaturewatch.org/dashboards/country/IND/?category=forest-change" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">[Source]</a>
+          </p>
+        </div>
+      </FadeInSection>
     </section>
   )
 }
@@ -420,14 +427,13 @@ const PresentState = ({ data }) => {
   return (
     <section id="present" className="py-24 relative">
       <div className="absolute top-1/2 -right-64 w-[600px] h-[600px] bg-cyan-400/5 rounded-full blur-[120px] pointer-events-none" />
-      <SectionHeader icon={Activity} label="Current Status" title="Where India Stands Today" subtitle="Vulnerability analysis of 36 states and union territories using AI-driven fuzzy logic scoring." color="text-cyan-400" />
+      <SectionHeader icon={Activity} label="Current Status" title="Where India Stands Today" subtitle="Vulnerability analysis of 36 states and union territories using multi-factor scoring." color="text-cyan-400" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         {[
           { label: 'Dense Forest Cover', value: `${o.forest_cover_pct_current}%`, detail: 'GFW >30% canopy threshold', color: 'text-primary', icon: Trees },
           { label: 'Net Forest Loss', value: fmtHa(o.net_loss_ha), detail: 'Total loss minus total gain', color: 'text-danger', icon: TrendingDown },
-          { label: 'Critical States', value: o.num_critical_states, detail: 'Identified by fuzzy logic AI', color: 'text-danger', icon: AlertTriangle },
-          { label: 'Avg. Annual Loss', value: fmtHa(o.avg_annual_loss_ha), detail: 'Per year over 20 years', color: 'text-warning', icon: Activity },
+          { label: 'Avg. Annual Loss', value: fmtHa(o.avg_annual_loss_ha), detail: 'Per year over study period', color: 'text-warning', icon: Activity },
         ].map((item, i) => (
           <FadeInSection key={i} delay={i * 0.1}>
             <SpotlightCard className="h-full border-t-4" style={{ borderTopColor: COLORS[item.color.replace('text-', '')] || COLORS.white }}>
@@ -478,7 +484,10 @@ const PresentState = ({ data }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {states.map((s, i) => (
+                  {states.map((s, i) => {
+                    const score = Math.round(s.vulnerability_score * 100)
+                    const priorityLabel = score >= 80 ? 'Critical' : score >= 60 ? 'High' : score >= 40 ? 'Moderate' : 'Low'
+                    return (
                     <tr key={s.name} className="border-b border-white/5 hover:bg-white/5">
                       <td className="py-3 pr-2">
                         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span>
@@ -486,11 +495,11 @@ const PresentState = ({ data }) => {
                       <td className="py-3 font-medium text-white">{s.name}</td>
                       <td className="py-3 text-right text-xs font-mono" style={{ color: s.total_loss_ha > 50000 ? COLORS.red : COLORS.white }}>{fmtHa(s.total_loss_ha)}</td>
                       <td className="py-3 text-center">
-                        <span className={`${badgeClass(s.fuzzy_priority_label)} text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide`}>{s.fuzzy_priority_label}</span>
+                        <span className={`${badgeClass(priorityLabel)} text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide`}>{priorityLabel}</span>
                       </td>
-                      <td className="py-3 text-right flex justify-end"><PriorityBar score={s.vulnerability_score * 100} label={s.fuzzy_priority_label} /></td>
+                      <td className="py-3 text-right flex justify-end"><PriorityBar score={score} label={priorityLabel} /></td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -573,47 +582,6 @@ const FutureScenarios = ({ data }) => {
         </FadeInSection>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <FadeInSection>
-          <SpotlightCard>
-            <h3 className="text-xl font-bold text-white mb-6">Annual Loss Projection</h3>
-            <Plot
-              data={[
-                { x: cf.past.years, y: cf.past.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Historical', line: { color: COLORS.white, width: 2 }, marker: { size: 5 } },
-                { x: cf.bau_scenario.years, y: cf.bau_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dash' }, marker: { size: 6, symbol: 'diamond' }, fill: 'tozeroy', fillcolor: 'rgba(255,82,82,0.05)' },
-                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.annual_loss_ha, type: 'scatter', mode: 'lines+markers', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dash' }, marker: { size: 6, symbol: 'square' }, fill: 'tozeroy', fillcolor: 'rgba(0,230,118,0.05)' },
-              ]}
-              layout={{
-                ...PLOTLY_LAYOUT,
-                xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Annual Loss (ha)' },
-                legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' },
-                shapes: [{ type: 'line', x0: 2020.5, x1: 2020.5, y0: 0, y1: 1, yref: 'paper', line: { color: COLORS.muted, width: 2, dash: 'dash' } }],
-                annotations: [{ x: 2020.5, y: 1.05, yref: 'paper', text: 'Forecast →', showarrow: false, font: { color: COLORS.muted, size: 12, weight: 'bold' } }],
-                height: 400,
-              }}
-              config={PLOTLY_CONFIG}
-              className="w-full"
-            />
-          </SpotlightCard>
-        </FadeInSection>
-
-        <FadeInSection delay={0.15}>
-          <SpotlightCard>
-            <h3 className="text-xl font-bold text-white mb-6">Cumulative Loss Trajectory</h3>
-            <Plot
-              data={[
-                { x: cf.past.years, y: cf.past.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Historical', line: { color: COLORS.white, width: 3 } },
-                { x: cf.bau_scenario.years, y: cf.bau_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'BAU', line: { color: COLORS.red, width: 3, dash: 'dash' }, fill: 'tonexty', fillcolor: 'rgba(255,82,82,0.1)' },
-                { x: cf.reforestation_scenario.years, y: cf.reforestation_scenario.cumulative_loss_ha, type: 'scatter', mode: 'lines', name: 'Reforestation', line: { color: COLORS.green, width: 3, dash: 'dash' } },
-              ]}
-              layout={{ ...PLOTLY_LAYOUT, xaxis: { ...PLOTLY_LAYOUT.xaxis, dtick: 2 }, yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Cumulative (ha)' }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 400 }}
-              config={PLOTLY_CONFIG}
-              className="w-full"
-            />
-          </SpotlightCard>
-        </FadeInSection>
-      </div>
 
       {/* Carbon savings */}
       <FadeInSection delay={0.2} className="mt-6">
@@ -643,6 +611,27 @@ const FutureScenarios = ({ data }) => {
 // ============================================================================
 // SECTION: ML INSIGHTS
 // ============================================================================
+const MODEL_CATEGORIES = {
+  'Linear Regression': {
+    icon: '📏',
+    color: 'rgba(68, 138, 255, 0.15)',
+    models: ['Ridge', 'Bayesian Ridge'],
+    description: 'Linear models with regularization'
+  },
+  'Boosting Algorithms': {
+    icon: '🚀',
+    color: 'rgba(255, 193, 7, 0.15)',
+    models: ['Gradient Boosting', 'XGBoost', 'AdaBoost', 'AdaBoost (Deep Trees)', 'AdaBoost (Linear Loss)', 'HistGradientBoosting', 'LightGBM'],
+    description: 'Sequential learners that correct previous errors'
+  },
+  'Ensemble Learning': {
+    icon: '🌲',
+    color: 'rgba(0, 230, 118, 0.15)',
+    models: ['Random Forest', 'Extra Trees', 'Bagging Trees'],
+    description: 'Parallel learners combined for robust predictions'
+  },
+}
+
 const MLInsights = ({ data }) => {
   const mp = data.modelPerformance
   if (!mp) return null
@@ -651,15 +640,20 @@ const MLInsights = ({ data }) => {
   const smote = data.modelPerformance?.smote_analysis || {}
 
   const [selectedModel, setSelectedModel] = useState('Random Forest')
+  const [activeCategory, setActiveCategory] = useState('all')
 
-  // Filter out any completely broken models (e.g. R2 <= 0) and reconstruct
+  // Build categorized model entries — only keep models in our 3 categories
+  const allowedModels = new Set(Object.values(MODEL_CATEGORIES).flatMap(c => c.models))
   const modelEntries = Object.entries(models)
-    .filter(([k, v]) => !['feature_importance', 'smote_analysis'].includes(k) && v.test_r2 > 0)
-    .sort((a, b) => b[1].test_r2 - a[1].test_r2) // Sort best first
+    .filter(([k, v]) => !['feature_importance', 'smote_analysis', '__selected_model__'].includes(k) && v.test_r2 > 0 && allowedModels.has(k))
+    .sort((a, b) => b[1].test_r2 - a[1].test_r2)
+
+  const filteredEntries = activeCategory === 'all'
+    ? modelEntries
+    : modelEntries.filter(([name]) => MODEL_CATEGORIES[activeCategory]?.models.includes(name))
 
   let bestName = modelEntries.length > 0 ? modelEntries[0][0] : ''
 
-  // Make sure selectedModel exists in featureImp
   useEffect(() => {
     if (Object.keys(featureImp).length > 0 && !featureImp[selectedModel] && bestName) {
       if (featureImp[bestName]) setSelectedModel(bestName)
@@ -667,49 +661,103 @@ const MLInsights = ({ data }) => {
     }
   }, [featureImp, bestName])
 
-  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'CatBoost': '🐱', 'AdaBoost': '🔥', SVR: '📐', Ridge: '📏', 'Extra Trees': '🌳', 'Gradient Boosting': '📈', 'HistGradientBoosting': '📊', 'ElasticNet': '🔗', 'Stacking Ensemble': '🏗️' }
+  const getModelCategory = (name) => {
+    for (const [cat, info] of Object.entries(MODEL_CATEGORIES)) {
+      if (info.models.includes(name)) return cat
+    }
+    return null
+  }
+
+  const catColors = { 'Linear Regression': '#448aff', 'Boosting Algorithms': '#ffc107', 'Ensemble Learning': '#00e676' }
+  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'AdaBoost': '🔥', 'AdaBoost (Deep Trees)': '🔥', 'AdaBoost (Linear Loss)': '🔥', Ridge: '📏', 'Extra Trees': '🌳', 'Gradient Boosting': '📈', 'HistGradientBoosting': '📊', 'Bagging Trees': '🎒', 'Bayesian Ridge': '📐', 'LightGBM': '💡' }
 
   return (
     <section id="ai" className="py-24 relative">
       <div className="absolute top-0 -left-64 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <SectionHeader icon={Brain} label="Machine Learning" title="AI Model Performance" subtitle="Advanced ensemble models trained with proper regularization and Leave-One-Out Cross-Validation. SMOTE applied to balance priority classification." color="text-blue-400" />
+      <SectionHeader icon={Brain} label="Machine Learning" title="AI Model Performance" subtitle="Models trained with regularization and cross-validation across 3 algorithm families. SMOTE applied to balance priority classification." color="text-blue-400" />
+
+      {/* Category Filter Tabs */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        <button
+          onClick={() => setActiveCategory('all')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeCategory === 'all' ? 'bg-white/10 text-white border border-white/20' : 'text-text-muted hover:text-white hover:bg-white/5 border border-transparent'}`}
+        >All Models ({modelEntries.length})</button>
+        {Object.entries(MODEL_CATEGORIES).map(([cat, info]) => {
+          const count = modelEntries.filter(([n]) => info.models.includes(n)).length
+          return (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeCategory === cat ? 'bg-white/10 text-white border border-white/20' : 'text-text-muted hover:text-white hover:bg-white/5 border border-transparent'}`}
+            >
+              <span>{info.icon}</span> {cat} ({count})
+            </button>
+          )
+        })}
+      </div>
 
       {/* Model Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-        {modelEntries.map(([name, m], i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+        {filteredEntries.map(([name, m], i) => {
+          const cat = getModelCategory(name)
+          return (
           <FadeInSection key={name} delay={i * 0.05}>
             <SpotlightCard className={`h-full ${name === bestName ? 'border-primary/40 bg-primary/5 shadow-[0_0_20px_rgba(0,230,118,0.15)]' : ''}`} glowColor={name === bestName ? 'rgba(0,230,118,0.15)' : undefined}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xl border border-white/10">{icons[name] || '🤖'}</div>
-                  <span className="font-bold text-white text-sm">{name}</span>
+                  <div>
+                    <span className="font-bold text-white text-sm block">{name}</span>
+                    {cat && <span className="text-[10px] uppercase tracking-wider" style={{ color: catColors[cat] }}>{cat}</span>}
+                  </div>
                 </div>
-                {name === bestName && <span className="text-[10px] px-2 py-1 bg-primary/20 text-primary rounded-full font-bold uppercase tracking-wider border border-primary/30 animate-pulse">Best Model</span>}
+                {name === bestName && <span className="text-[10px] px-2 py-1 bg-primary/20 text-primary rounded-full font-bold uppercase tracking-wider border border-primary/30 animate-pulse">Best</span>}
               </div>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs mb-1.5 font-medium uppercase tracking-wider">
-                    <span className="text-text-muted">Test R² Score</span>
+                    <span className="text-text-muted">Test R²</span>
                     <span className="font-mono font-bold" style={{ color: m.test_r2 > 0.9 ? COLORS.green : m.test_r2 > 0.7 ? COLORS.warning : COLORS.red }}>{m.test_r2.toFixed(4)}</span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden shadow-inner">
                     <motion.div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-primary" initial={{ width: 0 }} animate={{ width: `${Math.max(0, m.test_r2) * 100}%` }} transition={{ duration: 1.5, delay: i * 0.1 }} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
                   <div>
                     <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">MAE</div>
                     <div className="font-mono text-white text-sm">{fmt(m.test_mae)}</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Overfit Gap</div>
-                    <div className="font-mono text-sm" style={{ color: m.overfit_gap > 0.1 ? COLORS.red : COLORS.white }}>{m.overfit_gap !== undefined ? m.overfit_gap.toFixed(4) : '—'}</div>
+                    <div className="font-mono text-sm" style={{ color: Math.abs(m.overfit_gap) > 0.1 ? COLORS.red : COLORS.white }}>{m.overfit_gap !== undefined ? m.overfit_gap.toFixed(4) : '—'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Train R²</div>
+                    <div className="font-mono text-white text-sm">{m.train_r2.toFixed(4)}</div>
                   </div>
                 </div>
+
+                {/* Per-model SMOTE comparison */}
+                {smote.before_smote && (
+                  <div className="pt-3 border-t border-white/5">
+                    <div className="text-[10px] text-purple-400 uppercase tracking-wider mb-2 font-bold">SMOTE Impact</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 bg-black/20 rounded-lg text-center">
+                        <div className="text-[9px] text-text-muted uppercase mb-1">Before</div>
+                        <div className="text-sm font-bold text-white">{(smote.before_smote.accuracy * 100).toFixed(1)}%</div>
+                      </div>
+                      <div className="p-2 bg-purple-900/20 rounded-lg text-center border border-purple-500/20">
+                        <div className="text-[9px] text-purple-400 uppercase mb-1">After</div>
+                        <div className="text-sm font-bold text-purple-400">{(smote.after_smote.accuracy * 100).toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </SpotlightCard>
           </FadeInSection>
-        ))}
+        )})}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -719,10 +767,10 @@ const MLInsights = ({ data }) => {
             <h3 className="text-xl font-bold text-white mb-6">Train vs Test R² Comparison</h3>
             <Plot
               data={[
-                { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => Math.max(0, m.train_r2)), type: 'bar', name: 'Train R²', marker: { color: 'rgba(68, 138, 255, 0.7)' } },
-                { x: modelEntries.map(([n]) => n), y: modelEntries.map(([, m]) => Math.max(0, m.test_r2)), type: 'bar', name: 'Test R²', marker: { color: 'rgba(0, 230, 118, 0.9)' } },
+                { x: filteredEntries.map(([n]) => n), y: filteredEntries.map(([, m]) => Math.max(0, m.train_r2)), type: 'bar', name: 'Train R²', marker: { color: 'rgba(68, 138, 255, 0.7)' } },
+                { x: filteredEntries.map(([n]) => n), y: filteredEntries.map(([, m]) => Math.max(0, m.test_r2)), type: 'bar', name: 'Test R²', marker: { color: 'rgba(0, 230, 118, 0.9)' } },
               ]}
-              layout={{ ...PLOTLY_LAYOUT, barmode: 'group', yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'R² Score (Clamped to ≥0)', range: [0, 1.05] }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 400 }}
+              layout={{ ...PLOTLY_LAYOUT, barmode: 'group', yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'R² Score', range: [0, 1.05] }, legend: { ...PLOTLY_LAYOUT.legend, x: 0, y: 1.15, orientation: 'h' }, height: 400 }}
               config={PLOTLY_CONFIG}
               className="w-full"
             />
@@ -741,7 +789,7 @@ const MLInsights = ({ data }) => {
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="appearance-none bg-white/5 border border-white/10 text-white text-sm rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer hover:bg-white/10"
                   >
-                    {Object.keys(featureImp).map(m => (
+                    {Object.keys(featureImp).filter(m => allowedModels.has(m)).map(m => (
                       <option key={m} value={m} className="bg-card text-white">{m}</option>
                     ))}
                   </select>
@@ -770,24 +818,24 @@ const MLInsights = ({ data }) => {
         )}
       </div>
 
-      {/* SMOTE Before/After */}
+      {/* SMOTE Before/After Summary */}
       {smote.before_smote && (
         <FadeInSection>
           <div className="p-8 rounded-2xl bg-gradient-to-r from-card via-[#1e1a3b] to-card border border-purple-500/20 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px]" />
             <h3 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
               <div className="p-2 bg-purple-500/20 rounded-xl"><Zap size={24} className="text-purple-400" /></div>
-              Synthetic Minority Over-sampling (SMOTE)
+              SMOTE — Class Balance Overview
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-8 items-center">
               <div className="text-center p-6 bg-black/20 rounded-xl border border-white/5">
                 <div className="text-sm uppercase tracking-widest text-text-muted font-bold mb-4">Before SMOTE</div>
                 <div className="text-5xl font-display font-bold text-white mb-2">{(smote.before_smote.accuracy * 100).toFixed(1)}<span className="text-2xl text-text-muted">%</span></div>
-                <div className="text-sm text-text-muted font-medium mb-6">Test Accuracy</div>
+                <div className="text-sm text-text-muted font-medium mb-6">Classification Accuracy</div>
                 <div className="grid grid-cols-3 gap-2 text-xs border-t border-white/10 pt-4">
-                  <div><div className="text-text-muted mb-1">Low</div><div className="font-bold">{smote.before_smote.class_distribution.Low || 0}</div></div>
-                  <div><div className="text-text-muted mb-1">Med</div><div className="font-bold">{smote.before_smote.class_distribution.Medium || 0}</div></div>
-                  <div><div className="text-text-muted mb-1">High</div><div className="font-bold">{smote.before_smote.class_distribution.High || 0}</div></div>
+                  <div><div className="text-text-muted mb-1">Low</div><div className="font-bold text-white">{smote.before_smote.class_distribution.Low || 0}</div></div>
+                  <div><div className="text-text-muted mb-1">Med</div><div className="font-bold text-white">{smote.before_smote.class_distribution.Medium || 0}</div></div>
+                  <div><div className="text-text-muted mb-1">High</div><div className="font-bold text-white">{smote.before_smote.class_distribution.High || 0}</div></div>
                 </div>
               </div>
 
@@ -801,7 +849,7 @@ const MLInsights = ({ data }) => {
                 <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none" />
                 <div className="text-sm uppercase tracking-widest text-purple-400 font-bold mb-4">After SMOTE</div>
                 <div className="text-5xl font-display font-bold text-purple-400 mb-2 glow-text" style={{ textShadow: '0 0 20px rgba(168,85,247,0.4)' }}>{(smote.after_smote.accuracy * 100).toFixed(1)}<span className="text-2xl text-purple-400/50">%</span></div>
-                <div className="text-sm text-purple-300/80 font-medium mb-6">Test Accuracy</div>
+                <div className="text-sm text-purple-300/80 font-medium mb-6">Classification Accuracy</div>
                 <div className="grid grid-cols-3 gap-2 text-xs border-t border-purple-500/20 pt-4 text-purple-100">
                   <div><div className="text-purple-300/60 mb-1">Low</div><div className="font-bold">{smote.after_smote.class_distribution.Low || 0}</div></div>
                   <div><div className="text-purple-300/60 mb-1">Med</div><div className="font-bold">{smote.after_smote.class_distribution.Medium || 0}</div></div>
@@ -856,7 +904,7 @@ const ReforestationPlan = ({ data }) => {
       {/* Priority Chart */}
       <FadeInSection className="mb-10">
         <SpotlightCard>
-          <h3 className="text-xl font-bold text-white mb-6">Fuzzy Logic Priority Scores by State</h3>
+          <h3 className="text-xl font-bold text-white mb-6">Priority Scores by State</h3>
           <Plot
             data={[{
               y: sorted.map(s => s.name).reverse(),
@@ -942,7 +990,7 @@ const Footer = () => (
       </div>
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-text-muted/80">
         <Brain size={14} className="text-primary" />
-        Built with Ensemble Learning, Fuzzy Logic, SMOTE, and Time-Series Forecasting
+        Built with Ensemble Learning, SMOTE, and Time-Series Forecasting
       </div>
     </div>
   </footer>
