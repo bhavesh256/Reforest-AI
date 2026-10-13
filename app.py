@@ -1,159 +1,232 @@
 """
-Reforestation Web Application - Flask Backend
-==============================================
-Serves the SPA dashboard and REST API endpoints for ML pipeline results.
+Reforestation Intelligence Platform - Flask Backend
+Serves the dashboard and REST API endpoints for ML pipeline results.
 """
 
 import json
+import logging
+import math
 import os
 from pathlib import Path
-from flask import Flask, render_template, jsonify, send_from_directory
 
-app = Flask(__name__)
+from flask import Flask, jsonify, render_template, send_from_directory
 
 
-OUTPUT_DIR = Path('ml_outputs')
+# ============================================================
+# APPLICATION CONFIGURATION
+# ============================================================
 
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "ml_outputs"
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATE_DIR = BASE_DIR / "templates"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = Flask(
+    __name__,
+    static_folder=str(STATIC_DIR),
+    template_folder=str(TEMPLATE_DIR),
+)
+
+
+# ============================================================
+# JSON UTILITIES
+# ============================================================
 
 def sanitize_nan(obj):
-    """Recursively replace NaN and Inf with None for valid JSON output."""
-    import math
+    """Replace NaN and infinity with None for valid JSON."""
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
         return obj
-    elif isinstance(obj, dict):
-        return {k: sanitize_nan(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [sanitize_nan(v) for v in obj]
+
+    if isinstance(obj, dict):
+        return {
+            key: sanitize_nan(value)
+            for key, value in obj.items()
+        }
+
+    if isinstance(obj, list):
+        return [sanitize_nan(value) for value in obj]
+
     return obj
 
 
 def load_json(filename):
-    """Load a JSON file from the ml_outputs directory."""
+    """Load a JSON output file using an absolute path."""
     filepath = OUTPUT_DIR / filename
-    if filepath.exists():
-        with open(filepath, 'r') as f:
-            try:
-                data = json.load(f)
-                return sanitize_nan(data)
-            except Exception:
-                return {}
-    return {}
 
+    if not filepath.is_file():
+        logger.error("Required output file not found: %s", filepath)
+        return {}
+
+    try:
+        with filepath.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        logger.info("Loaded JSON file: %s", filepath)
+        return sanitize_nan(data)
+
+    except (json.JSONDecodeError, OSError):
+        logger.exception("Failed to read JSON file: %s", filepath)
+        return {}
+
+
+# ============================================================
+# RESPONSE HEADERS
+# ============================================================
 
 @app.after_request
 def add_cache_headers(response):
-    """Ensure API responses are never cached by browsers or intermediaries."""
-    if hasattr(response, 'headers'):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+    """Prevent stale API responses from being cached."""
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 
-# ============================================================================
-# ROUTES
-# ============================================================================
+# ============================================================
+# FRONTEND ROUTE
+# ============================================================
 
-@app.route('/')
+@app.route("/")
 def index():
-    """Serve the main SPA dashboard."""
-    static_index = Path('static') / 'index.html'
-    if static_index.exists():
-        return send_from_directory('static', 'index.html')
-    return render_template('index.html')
+    """Serve the dashboard entry point."""
+    static_index = STATIC_DIR / "index.html"
+
+    if static_index.is_file():
+        return send_from_directory(str(STATIC_DIR), "index.html")
+
+    template_index = TEMPLATE_DIR / "index.html"
+
+    if template_index.is_file():
+        return render_template("index.html")
+
+    return (
+        "Dashboard index.html not found. "
+        "Check the frontend build and static/template directories.",
+        500,
+    )
 
 
-# ============================================================================
-# API ENDPOINTS
-# ============================================================================
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 
 @app.route("/healthz", methods=["GET"])
 def healthz():
+    """Health endpoint for Render."""
     return jsonify({"status": "healthy"}), 200
 
-@app.route('/api/overview')
+
+# ============================================================
+# API ENDPOINTS
+# ============================================================
+
+@app.route("/api/overview", methods=["GET"])
 def api_overview():
     """Country-level summary statistics."""
-    return jsonify(load_json('overview.json'))
+    return jsonify(load_json("overview.json"))
 
 
-@app.route('/api/timeline')
+@app.route("/api/timeline", methods=["GET"])
 def api_timeline():
-    """Year-by-year national timeline data."""
-    return jsonify(load_json('national_timeline.json'))
+    """Year-by-year national timeline."""
+    return jsonify(load_json("national_timeline.json"))
 
 
-@app.route('/api/states')
+@app.route("/api/states", methods=["GET"])
 def api_states():
-    """State-level data with rankings."""
-    return jsonify(load_json('state_rankings.json'))
+    """State-level data and rankings."""
+    return jsonify(load_json("state_rankings.json"))
 
 
-@app.route('/api/state/<name>')
+@app.route("/api/state/<name>", methods=["GET"])
 def api_state(name):
-    """Detailed data for a specific state."""
-    states = load_json('state_rankings.json')
-    forecasts = load_json('state_forecasts.json')
+    """Detailed information and forecast for one state."""
+    states = load_json("state_rankings.json")
+    forecasts = load_json("state_forecasts.json")
 
-    state_data = next((s for s in states if s['name'] == name), None)
+    if not isinstance(states, list):
+        logger.error("state_rankings.json must contain a JSON list")
+        return jsonify({"error": "State data is unavailable"}), 503
+
+    state_data = next(
+        (
+            state for state in states
+            if isinstance(state, dict)
+            and state.get("name", "").casefold() == name.casefold()
+        ),
+        None,
+    )
+
     if state_data is None:
-        return jsonify({'error': 'State not found'}), 404
+        return jsonify({"error": "State not found"}), 404
 
-    state_data['forecast'] = forecasts.get(name, {})
+    if not isinstance(forecasts, dict):
+        forecasts = {}
+
+    state_data["forecast"] = forecasts.get(name, {})
     return jsonify(state_data)
 
 
-@app.route('/api/predictions')
+@app.route("/api/predictions", methods=["GET"])
 def api_predictions():
-    """Future scenario predictions."""
+    """Return future scenario predictions."""
     return jsonify({
-        'state_forecasts': load_json('state_forecasts.json'),
-        'country_forecast': load_json('country_forecast.json'),
+        "state_forecasts": load_json("state_forecasts.json"),
+        "country_forecast": load_json("country_forecast.json"),
     })
 
 
-@app.route('/api/country-forecast')
+@app.route("/api/country-forecast", methods=["GET"])
 def api_country_forecast():
     """Country-level forecast."""
-    return jsonify(load_json('country_forecast.json'))
+    return jsonify(load_json("country_forecast.json"))
 
 
-@app.route('/api/model-performance')
+@app.route("/api/model-performance", methods=["GET"])
 def api_model_performance():
-    """ML model metrics and comparisons."""
+    """Model metrics, feature importance, and SMOTE analysis."""
     return jsonify({
-        'models': load_json('model_performance.json'),
-        'feature_importance': load_json('feature_importance.json'),
-        'smote_analysis': load_json('smote_analysis.json'),
+        "models": load_json("model_performance.json"),
+        "feature_importance": load_json("feature_importance.json"),
+        "smote_analysis": load_json("smote_analysis.json"),
     })
 
 
-@app.route('/api/reforestation-plan')
+@app.route("/api/reforestation-plan", methods=["GET"])
 def api_reforestation_plan():
     """Reforestation priority areas and recommendations."""
-    return jsonify(load_json('reforestation_plan.json'))
+    return jsonify(load_json("reforestation_plan.json"))
 
 
-@app.route('/api/all')
+@app.route("/api/all", methods=["GET"])
 def api_all():
-    """All pipeline results in one call."""
-    return jsonify(load_json('pipeline_results.json'))
+    """Return all pipeline results."""
+    return jsonify(load_json("pipeline_results.json"))
 
 
-# ============================================================================
-# ENTRY POINT
-# ============================================================================
-if __name__ == '__main__':
-    # Check if ML pipeline has been run
-    if not (OUTPUT_DIR / 'pipeline_results.json').exists():
-        print("ML pipeline results not found. Running pipeline first...")
-        from ml_pipeline import ReforestationPipeline
-        pipeline = ReforestationPipeline()
-        pipeline.run()
-        print("Pipeline complete. Starting web server...")
-    else:
-        print("ML pipeline results found. Starting web server...")
+# ============================================================
+# LOCAL DEVELOPMENT ENTRY POINT
+# ============================================================
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    logger.info("Application directory: %s", BASE_DIR)
+    logger.info("ML output directory: %s", OUTPUT_DIR)
+
+    if not (OUTPUT_DIR / "pipeline_results.json").is_file():
+        logger.warning(
+            "Pipeline results are missing. "
+            "Run ml_pipeline.py to generate the required JSON files."
+        )
+
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "5000")),
+        debug=False,
+    )
