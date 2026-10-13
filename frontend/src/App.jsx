@@ -233,7 +233,7 @@ const HeroDashboard = ({ data }) => {
           </span>
         </h1>
         <p className="text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-          Analyzing 20+ years of satellite data with advanced ML to predict optimal reforestation zones and model future scenarios for India's forests.
+          Analyzing 20+ years of data with advanced ML to predict optimal reforestation zones and model future scenarios for India's forests.
         </p>
       </FadeInSection>
 
@@ -1062,7 +1062,7 @@ function App() {
             <div className="text-2xl font-display font-bold text-white mb-2">Loading Reforestation Intelligence</div>
             <div className="text-sm text-text-muted flex items-center justify-center gap-2">
               <span className="w-2 h-2 bg-primary rounded-full animate-ping" />
-              Analyzing satellite data & ML predictions...
+              Analyzing data & ML predictions...
             </div>
           </div>
         </motion.div>

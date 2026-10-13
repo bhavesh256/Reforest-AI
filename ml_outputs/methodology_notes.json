@@ -1,0 +1,7 @@
+[
+  "Regression predictors exclude features directly derived from the 2001–2020 loss target.",
+  "Reported regression metrics are out-of-fold estimates from shuffled K-fold cross-validation.",
+  "With few state-level samples, performance estimates have high uncertainty.",
+  "The reforestation forecast is an illustrative scenario, not a causal policy-impact estimate.",
+  "Fuzzy/vulnerability scores are decision-support rankings, not ground-truth labels."
+]

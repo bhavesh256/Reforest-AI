@@ -14,20 +14,9 @@
   "isfr_forest_area_sqkm": 713789,
   "isfr_tree_cover_sqkm": 111818,
   "avg_annual_loss_ha": 96662.6,
-  "total_projected_loss_avoidance_ha": 523529.8,
-  "total_carbon_savings_Mg": 257561438.6,
+  "total_projected_loss_avoidance_ha": 602346.4942867471,
+  "total_carbon_savings_Mg": 304691774.23777497,
   "num_states": 36,
-  "num_critical_states": 3,
-  "num_high_states": 13,
-  "n_districts": 666,
-  "ml_predicted_loss_2021_25_ha": 890159.2003942126,
-  "forecast_model": "Top-3 Blend",
-  "best_cv_r2_log": 0.9348523666555393,
-  "priority_counts_state": {
-    "High": 13,
-    "Low": 12,
-    "Moderate": 8,
-    "Critical": 3
-  },
-  "data_note": "All figures are raw GFW values at 30% canopy threshold; no scaling applied."
+  "num_critical_states": 15,
+  "num_high_states": 1
 }

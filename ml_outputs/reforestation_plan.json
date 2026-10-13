@@ -1,290 +1,290 @@
 [
   {
-    "name": "Odisha",
-    "priority_label": "Critical",
-    "priority_score": 81.3,
-    "projected_loss_avoidance_ha": 28502.5,
-    "carbon_savings_Mg": 12482352.6,
-    "current_loss_rate": 8978.8
-  },
-  {
-    "name": "Assam",
-    "priority_label": "High",
-    "priority_score": 77.6,
-    "projected_loss_avoidance_ha": 62746.9,
-    "carbon_savings_Mg": 27853759.1,
-    "current_loss_rate": 17571.6
-  },
-  {
-    "name": "Karnataka",
-    "priority_label": "High",
-    "priority_score": 72.8,
-    "projected_loss_avoidance_ha": 9344.3,
-    "carbon_savings_Mg": 5000305.5,
-    "current_loss_rate": 2987.6
-  },
-  {
-    "name": "Andhra Pradesh",
-    "priority_label": "Critical",
-    "priority_score": 71.3,
-    "projected_loss_avoidance_ha": 6849.9,
-    "carbon_savings_Mg": 3017829.5,
-    "current_loss_rate": 2116.8
-  },
-  {
-    "name": "Telangana",
-    "priority_label": "Critical",
-    "priority_score": 70.4,
-    "projected_loss_avoidance_ha": 2807.7,
-    "carbon_savings_Mg": 941769.1,
-    "current_loss_rate": 440.2
-  },
-  {
-    "name": "Arunachal Pradesh",
-    "priority_label": "High",
-    "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 45848.0,
-    "carbon_savings_Mg": 23862795.1,
-    "current_loss_rate": 14321.4
-  },
-  {
     "name": "Manipur",
-    "priority_label": "High",
-    "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 65851.1,
-    "carbon_savings_Mg": 33643271.2,
-    "current_loss_rate": 17345.2
+    "priority_label": "Critical",
+    "priority_score": 90.0,
+    "projected_loss_avoidance_ha": 77111.226983896,
+    "carbon_savings_Mg": 39396047.630279705,
+    "current_loss_rate": 9802.05
   },
   {
     "name": "Meghalaya",
-    "priority_label": "High",
-    "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 65998.0,
-    "carbon_savings_Mg": 33344414.3,
-    "current_loss_rate": 17382.4
+    "priority_label": "Critical",
+    "priority_score": 90.0,
+    "projected_loss_avoidance_ha": 49926.198544333616,
+    "carbon_savings_Mg": 25224384.002672665,
+    "current_loss_rate": 9753.05
   },
   {
-    "name": "Mizoram",
-    "priority_label": "High",
-    "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 105340.8,
-    "carbon_savings_Mg": 52514629.0,
-    "current_loss_rate": 29300.6
+    "name": "Arunachal Pradesh",
+    "priority_label": "Critical",
+    "priority_score": 90.0,
+    "projected_loss_avoidance_ha": 10127.370892461535,
+    "carbon_savings_Mg": 5271061.485353962,
+    "current_loss_rate": 11102.6
   },
   {
     "name": "Nagaland",
-    "priority_label": "High",
-    "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 55924.8,
-    "carbon_savings_Mg": 28719987.2,
-    "current_loss_rate": 16448.0
+    "priority_label": "Critical",
+    "priority_score": 89.99999999999999,
+    "projected_loss_avoidance_ha": 70334.72549116453,
+    "carbon_savings_Mg": 36120186.430418685,
+    "current_loss_rate": 11272.55
   },
   {
-    "name": "Tripura",
+    "name": "Odisha",
     "priority_label": "High",
     "priority_score": 70.0,
-    "projected_loss_avoidance_ha": 32820.9,
-    "carbon_savings_Mg": 17296462.7,
-    "current_loss_rate": 9879.0
+    "projected_loss_avoidance_ha": 54944.895708957454,
+    "carbon_savings_Mg": 24062537.740776867,
+    "current_loss_rate": 5730.55
+  },
+  {
+    "name": "Mizoram",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 157784.80406546488,
+    "carbon_savings_Mg": 78659065.59305593,
+    "current_loss_rate": 12340.05
+  },
+  {
+    "name": "Assam",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 12994.245951958364,
+    "carbon_savings_Mg": 5768232.35798496,
+    "current_loss_rate": 13425.0
   },
   {
     "name": "Kerala",
-    "priority_label": "High",
-    "priority_score": 65.7,
-    "projected_loss_avoidance_ha": 26232.6,
-    "carbon_savings_Mg": 14732819.5,
-    "current_loss_rate": 7490.0
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 45173.34178384659,
+    "carbon_savings_Mg": 25370355.624870848,
+    "current_loss_rate": 3631.35
   },
   {
-    "name": "Chhattisgarh",
-    "priority_label": "High",
-    "priority_score": 65.3,
-    "projected_loss_avoidance_ha": 6059.9,
-    "carbon_savings_Mg": 2785497.0,
-    "current_loss_rate": 2118.0
-  },
-  {
-    "name": "Tamil Nadu",
-    "priority_label": "Moderate",
-    "priority_score": 63.8,
-    "projected_loss_avoidance_ha": 4141.9,
-    "carbon_savings_Mg": 1900504.8,
-    "current_loss_rate": 1661.0
-  },
-  {
-    "name": "West Bengal",
-    "priority_label": "Moderate",
-    "priority_score": 63.8,
-    "projected_loss_avoidance_ha": 1126.0,
-    "carbon_savings_Mg": 478137.4,
-    "current_loss_rate": 327.8
-  },
-  {
-    "name": "Maharashtra",
-    "priority_label": "High",
-    "priority_score": 60.5,
-    "projected_loss_avoidance_ha": 2159.5,
-    "carbon_savings_Mg": 941739.5,
-    "current_loss_rate": 839.6
-  },
-  {
-    "name": "Andaman and Nicobar",
-    "priority_label": "Moderate",
-    "priority_score": 53.5,
-    "projected_loss_avoidance_ha": 2.8,
-    "carbon_savings_Mg": 1715.3,
-    "current_loss_rate": 336.0
-  },
-  {
-    "name": "Uttar Pradesh",
-    "priority_label": "High",
-    "priority_score": 51.4,
-    "projected_loss_avoidance_ha": 5.1,
-    "carbon_savings_Mg": 2196.0,
-    "current_loss_rate": 47.4
-  },
-  {
-    "name": "Madhya Pradesh",
-    "priority_label": "High",
-    "priority_score": 49.8,
-    "projected_loss_avoidance_ha": 328.3,
-    "carbon_savings_Mg": 149078.2,
-    "current_loss_rate": 260.6
-  },
-  {
-    "name": "Uttarakhand",
-    "priority_label": "Moderate",
-    "priority_score": 48.9,
-    "projected_loss_avoidance_ha": 2639.8,
-    "carbon_savings_Mg": 1405656.8,
-    "current_loss_rate": 795.4
-  },
-  {
-    "name": "NCT of Delhi",
-    "priority_label": "Moderate",
-    "priority_score": 42.7,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.8,
-    "current_loss_rate": 0.0
-  },
-  {
-    "name": "Puducherry",
-    "priority_label": "Moderate",
-    "priority_score": 41.1,
-    "projected_loss_avoidance_ha": 46.2,
-    "carbon_savings_Mg": 22505.0,
-    "current_loss_rate": 14.4
-  },
-  {
-    "name": "Punjab",
-    "priority_label": "Low",
-    "priority_score": 40.6,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
-    "current_loss_rate": 4.6
-  },
-  {
-    "name": "Rajasthan",
-    "priority_label": "Moderate",
-    "priority_score": 40.5,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
-    "current_loss_rate": 0.0
-  },
-  {
-    "name": "Jharkhand",
-    "priority_label": "Moderate",
-    "priority_score": 39.5,
-    "projected_loss_avoidance_ha": 336.4,
-    "carbon_savings_Mg": 159463.9,
-    "current_loss_rate": 200.4
-  },
-  {
-    "name": "Bihar",
-    "priority_label": "Low",
-    "priority_score": 39.4,
-    "projected_loss_avoidance_ha": 0.8,
-    "carbon_savings_Mg": 342.5,
-    "current_loss_rate": 14.0
-  },
-  {
-    "name": "Haryana",
-    "priority_label": "Low",
-    "priority_score": 33.3,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 11.2,
-    "current_loss_rate": 2.0
-  },
-  {
-    "name": "Chandigarh",
-    "priority_label": "Low",
-    "priority_score": 30.8,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
-    "current_loss_rate": 0.0
+    "name": "Tripura",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 94803.74633604262,
+    "carbon_savings_Mg": 49961088.245933935,
+    "current_loss_rate": 5110.05
   },
   {
     "name": "Sikkim",
-    "priority_label": "Low",
-    "priority_score": 30.8,
-    "projected_loss_avoidance_ha": 346.0,
-    "carbon_savings_Mg": 185214.7,
-    "current_loss_rate": 90.8
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 775.6208751123643,
+    "carbon_savings_Mg": 415244.45477118995,
+    "current_loss_rate": 73.3
   },
   {
-    "name": "Himachal Pradesh",
-    "priority_label": "Low",
-    "priority_score": 29.9,
-    "projected_loss_avoidance_ha": 11.1,
-    "carbon_savings_Mg": 5808.4,
-    "current_loss_rate": 102.0
+    "name": "Uttarakhand",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 854.1725905848443,
+    "carbon_savings_Mg": 454836.555060857,
+    "current_loss_rate": 804.7
   },
   {
     "name": "Goa",
-    "priority_label": "Low",
-    "priority_score": 27.7,
-    "projected_loss_avoidance_ha": 199.4,
-    "carbon_savings_Mg": 101070.2,
-    "current_loss_rate": 58.4
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 39.6
   },
   {
-    "name": "Jammu and Kashmir",
-    "priority_label": "Low",
-    "priority_score": 24.7,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
-    "current_loss_rate": 41.8
+    "name": "Andaman and Nicobar",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 4737.054390071375,
+    "carbon_savings_Mg": 2894109.913210242,
+    "current_loss_rate": 900.85
   },
   {
-    "name": "Dadra and Nagar Haveli",
-    "priority_label": "Low",
-    "priority_score": 20.0,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
+    "name": "Lakshadweep",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
     "current_loss_rate": 0.0
   },
   {
     "name": "Daman and Diu",
-    "priority_label": "Low",
-    "priority_score": 20.0,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
     "current_loss_rate": 0.0
+  },
+  {
+    "name": "Dadra and Nagar Haveli",
+    "priority_label": "Critical",
+    "priority_score": 50.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 0.0
+  },
+  {
+    "name": "Karnataka",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 8596.23948884843,
+    "carbon_savings_Mg": 4600000.899042232,
+    "current_loss_rate": 2179.25
+  },
+  {
+    "name": "Andhra Pradesh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 1722.25
+  },
+  {
+    "name": "Chhattisgarh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 2315.05
+  },
+  {
+    "name": "Tamil Nadu",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 13548.14567651867,
+    "carbon_savings_Mg": 6216501.875889536,
+    "current_loss_rate": 1276.0
+  },
+  {
+    "name": "Puducherry",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 26.14415047844068,
+    "carbon_savings_Mg": 12733.096630619744,
+    "current_loss_rate": 7.3
+  },
+  {
+    "name": "Maharashtra",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 608.5613570073128,
+    "carbon_savings_Mg": 265388.33182274504,
+    "current_loss_rate": 917.0
+  },
+  {
+    "name": "Madhya Pradesh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 440.25
   },
   {
     "name": "Gujarat",
-    "priority_label": "Low",
-    "priority_score": 20.0,
-    "projected_loss_avoidance_ha": 0.3,
-    "carbon_savings_Mg": 162.3,
-    "current_loss_rate": 0.0
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 4.95
   },
   {
-    "name": "Lakshadweep",
-    "priority_label": "Low",
-    "priority_score": 20.0,
-    "projected_loss_avoidance_ha": 0.0,
-    "carbon_savings_Mg": 0.0,
-    "current_loss_rate": 0.0
+    "name": "Jharkhand",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 270.8
+  },
+  {
+    "name": "Telangana",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 2056.9
+  },
+  {
+    "name": "West Bengal",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 681.7
+  },
+  {
+    "name": "Uttar Pradesh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 211.25
+  },
+  {
+    "name": "Jammu and Kashmir",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 201.0
+  },
+  {
+    "name": "Bihar",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 61.15
+  },
+  {
+    "name": "Himachal Pradesh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 234.95
+  },
+  {
+    "name": "Rajasthan",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 12.55
+  },
+  {
+    "name": "Haryana",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 20.6
+  },
+  {
+    "name": "NCT of Delhi",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 0.6
+  },
+  {
+    "name": "Punjab",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 62.7
+  },
+  {
+    "name": "Chandigarh",
+    "priority_label": "Moderate",
+    "priority_score": 45.0,
+    "projected_loss_avoidance_ha": 0,
+    "carbon_savings_Mg": 0,
+    "current_loss_rate": 0.65
   }
 ]

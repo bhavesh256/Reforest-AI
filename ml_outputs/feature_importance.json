@@ -1,422 +1,212 @@
 {
   "Random Forest": [
     {
-      "feature": "loss_last3_ha",
-      "importance": 0.4722
+      "feature": "log_total_emissions",
+      "importance": 0.4654
     },
     {
-      "feature": "loss_last5_ha",
-      "importance": 0.273
-    },
-    {
-      "feature": "emis_last5_Mg",
-      "importance": 0.1824
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0127
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.0106
-    },
-    {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0075
-    },
-    {
-      "feature": "biomass_density",
-      "importance": 0.0044
-    },
-    {
-      "feature": "gain_2000_2012_ha",
-      "importance": 0.0041
-    },
-    {
-      "feature": "biomass_stock",
-      "importance": 0.0036
+      "feature": "total_emissions_Mg",
+      "importance": 0.4546
     },
     {
       "feature": "extent_2000_ha",
-      "importance": 0.0035
-    }
-  ],
-  "Extra Trees": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.2943
+      "importance": 0.0271
     },
     {
-      "feature": "loss_last5_ha",
-      "importance": 0.2061
+      "feature": "extent_2010_ha",
+      "importance": 0.0174
     },
     {
-      "feature": "emis_last5_Mg",
-      "importance": 0.1175
+      "feature": "forest_cover_ratio_2010",
+      "importance": 0.0142
     },
     {
-      "feature": "loss_hist_ha",
-      "importance": 0.0821
+      "feature": "forest_cover_ratio_2000",
+      "importance": 0.011
     },
     {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0816
+      "feature": "net_carbon_flux",
+      "importance": 0.0058
     },
     {
-      "feature": "loss_std_ha",
-      "importance": 0.0507
+      "feature": "is_carbon_source",
+      "importance": 0.0045
     },
     {
-      "feature": "loss_last1_ha",
-      "importance": 0.0454
+      "feature": "area_ha",
+      "importance": 0.0
     },
     {
-      "feature": "loss_max_ha",
-      "importance": 0.0429
-    },
-    {
-      "feature": "loss_first5_ha",
-      "importance": 0.0199
-    },
-    {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0134
-    }
-  ],
-  "Gradient Boosting": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.4926
-    },
-    {
-      "feature": "loss_last5_ha",
-      "importance": 0.232
-    },
-    {
-      "feature": "emis_last5_Mg",
-      "importance": 0.1742
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.0248
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0166
-    },
-    {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0088
-    },
-    {
-      "feature": "loss_hist_ha",
-      "importance": 0.0072
-    },
-    {
-      "feature": "extent_2000_ha",
-      "importance": 0.0062
-    },
-    {
-      "feature": "loss_first5_ha",
-      "importance": 0.0055
-    },
-    {
-      "feature": "biomass_density",
-      "importance": 0.0048
+      "feature": "forest_cover_change_2000_2010",
+      "importance": 0.0
     }
   ],
   "XGBoost": [
     {
-      "feature": "loss_last5_ha",
-      "importance": 0.4596
+      "feature": "log_total_emissions",
+      "importance": 0.4877
     },
     {
-      "feature": "loss_last3_ha",
-      "importance": 0.2361
+      "feature": "total_emissions_Mg",
+      "importance": 0.4537
     },
     {
-      "feature": "emis_last5_Mg",
-      "importance": 0.2122
+      "feature": "forest_cover_ratio_2010",
+      "importance": 0.0248
     },
     {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0215
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0141
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.0103
-    },
-    {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0066
-    },
-    {
-      "feature": "biomass_stock",
-      "importance": 0.0056
+      "feature": "extent_2010_ha",
+      "importance": 0.0152
     },
     {
       "feature": "extent_2000_ha",
-      "importance": 0.0056
+      "importance": 0.0073
     },
     {
-      "feature": "loss_first5_ha",
-      "importance": 0.004
-    }
-  ],
-  "AdaBoost": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.6196
+      "feature": "forest_cover_ratio_2000",
+      "importance": 0.0033
     },
     {
-      "feature": "loss_last5_ha",
-      "importance": 0.2248
+      "feature": "net_carbon_flux",
+      "importance": 0.0022
     },
     {
-      "feature": "emis_last5_Mg",
-      "importance": 0.0871
+      "feature": "is_carbon_source",
+      "importance": 0.0022
     },
     {
-      "feature": "extent_over_area",
-      "importance": 0.0186
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0109
-    },
-    {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0047
-    },
-    {
-      "feature": "loss_hist_ha",
-      "importance": 0.0047
+      "feature": "forest_cover_change_2000_2010",
+      "importance": 0.0019
     },
     {
       "feature": "biomass_density",
-      "importance": 0.0036
-    },
-    {
-      "feature": "biomass_stock",
-      "importance": 0.0035
-    },
-    {
-      "feature": "gain_2000_2012_ha",
-      "importance": 0.0035
-    }
-  ],
-  "Ridge": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.2824
-    },
-    {
-      "feature": "loss_last5_ha",
-      "importance": 0.2091
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.0652
-    },
-    {
-      "feature": "loss_hist_ha",
-      "importance": 0.0532
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0505
-    },
-    {
-      "feature": "biomass_stock",
-      "importance": 0.0461
-    },
-    {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0444
-    },
-    {
-      "feature": "loss_first5_ha",
-      "importance": 0.0382
-    },
-    {
-      "feature": "recent_share",
-      "importance": 0.0381
-    },
-    {
-      "feature": "extent_2000_ha",
-      "importance": 0.0376
-    }
-  ],
-  "Bayesian Ridge": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.2551
-    },
-    {
-      "feature": "loss_last5_ha",
-      "importance": 0.2022
-    },
-    {
-      "feature": "loss_hist_ha",
-      "importance": 0.0682
-    },
-    {
-      "feature": "biomass_stock",
-      "importance": 0.062
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.0577
-    },
-    {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0516
-    },
-    {
-      "feature": "loss_first5_ha",
-      "importance": 0.049
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0429
-    },
-    {
-      "feature": "emis_hist_Mg",
-      "importance": 0.0426
-    },
-    {
-      "feature": "extent_2000_ha",
-      "importance": 0.0424
-    }
-  ],
-  "ElasticNet": [
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.424
-    },
-    {
-      "feature": "loss_last5_ha",
-      "importance": 0.2169
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.1029
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.0895
-    },
-    {
-      "feature": "recent_share",
-      "importance": 0.0432
-    },
-    {
-      "feature": "gain_2000_2012_ha",
-      "importance": 0.0283
-    },
-    {
-      "feature": "extent_2000_ha",
-      "importance": 0.0255
-    },
-    {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0243
-    },
-    {
-      "feature": "loss_over_extent",
-      "importance": 0.021
-    },
-    {
-      "feature": "biomass_density",
-      "importance": 0.0115
+      "importance": 0.0009
     }
   ],
   "CatBoost": [
     {
-      "feature": "loss_last3_ha",
-      "importance": 0.2069
+      "feature": "total_emissions_Mg",
+      "importance": 37.051
     },
     {
-      "feature": "loss_last5_ha",
-      "importance": 0.1191
+      "feature": "log_total_emissions",
+      "importance": 33.1984
     },
     {
-      "feature": "emis_last5_Mg",
-      "importance": 0.1137
+      "feature": "extent_2010_ha",
+      "importance": 13.227
     },
     {
-      "feature": "loss_max_ha",
-      "importance": 0.0916
+      "feature": "net_carbon_flux",
+      "importance": 3.39
     },
     {
-      "feature": "loss_last1_ha",
-      "importance": 0.0621
+      "feature": "log_area",
+      "importance": 3.37
     },
     {
-      "feature": "extent_over_area",
-      "importance": 0.0612
-    },
-    {
-      "feature": "loss_hist_ha",
-      "importance": 0.0517
+      "feature": "forest_cover_change_2000_2010",
+      "importance": 2.6793
     },
     {
       "feature": "extent_2000_ha",
-      "importance": 0.0419
+      "importance": 2.4017
     },
     {
-      "feature": "extent_at_start_ha",
-      "importance": 0.0367
+      "feature": "biomass_density",
+      "importance": 1.8389
     },
     {
-      "feature": "biomass_stock",
-      "importance": 0.0323
+      "feature": "area_ha",
+      "importance": 1.6234
+    },
+    {
+      "feature": "forest_cover_ratio_2000",
+      "importance": 0.6261
     }
   ],
   "LightGBM": [
     {
-      "feature": "biomass_density",
-      "importance": 0.0989
-    },
-    {
-      "feature": "loss_last3_ha",
-      "importance": 0.0871
-    },
-    {
-      "feature": "extent_over_area",
-      "importance": 0.081
-    },
-    {
-      "feature": "emis_per_ha_lost",
-      "importance": 0.0724
-    },
-    {
-      "feature": "loss_slope",
-      "importance": 0.0708
-    },
-    {
-      "feature": "recent_share",
-      "importance": 0.0582
-    },
-    {
-      "feature": "loss_last1_ha",
-      "importance": 0.057
-    },
-    {
       "feature": "area_ha",
-      "importance": 0.0537
+      "importance": 0.0
     },
     {
-      "feature": "loss_over_extent",
-      "importance": 0.0476
+      "feature": "extent_2000_ha",
+      "importance": 0.0
     },
     {
-      "feature": "gain_2000_2012_ha",
-      "importance": 0.0456
+      "feature": "extent_2010_ha",
+      "importance": 0.0
+    },
+    {
+      "feature": "forest_cover_ratio_2000",
+      "importance": 0.0
+    },
+    {
+      "feature": "forest_cover_ratio_2010",
+      "importance": 0.0
+    },
+    {
+      "feature": "forest_cover_change_2000_2010",
+      "importance": 0.0
+    },
+    {
+      "feature": "biomass_density",
+      "importance": 0.0
+    },
+    {
+      "feature": "total_emissions_Mg",
+      "importance": 0.0
+    },
+    {
+      "feature": "log_total_emissions",
+      "importance": 0.0
+    },
+    {
+      "feature": "net_carbon_flux",
+      "importance": 0.0
+    }
+  ],
+  "AdaBoost": [
+    {
+      "feature": "log_total_emissions",
+      "importance": 0.5004
+    },
+    {
+      "feature": "total_emissions_Mg",
+      "importance": 0.4151
+    },
+    {
+      "feature": "is_carbon_source",
+      "importance": 0.0176
+    },
+    {
+      "feature": "forest_cover_ratio_2010",
+      "importance": 0.0145
+    },
+    {
+      "feature": "net_carbon_flux",
+      "importance": 0.0142
+    },
+    {
+      "feature": "forest_cover_change_2000_2010",
+      "importance": 0.0121
+    },
+    {
+      "feature": "forest_cover_ratio_2000",
+      "importance": 0.0089
+    },
+    {
+      "feature": "biomass_density",
+      "importance": 0.0058
+    },
+    {
+      "feature": "extent_2000_ha",
+      "importance": 0.0053
+    },
+    {
+      "feature": "extent_2010_ha",
+      "importance": 0.0035
     }
   ]
 }
