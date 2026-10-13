@@ -305,9 +305,14 @@ const HeroDashboard = ({ data }) => {
 // SECTION: PAST ANALYSIS
 // ============================================================================
 const PastAnalysis = ({ data }) => {
-  const t = data.timeline
-  const states = data.states
-  if (!t) return null
+  const t = data?.timeline || {}
+  const states = Array.isArray(data?.states) ? data.states : []
+  const annualLoss = Array.isArray(t?.annual_loss_ha) ? t.annual_loss_ha : []
+  const years = Array.isArray(t?.years) ? t.years : []
+  const cumulativeLoss = Array.isArray(t?.cumulative_loss_ha) ? t.cumulative_loss_ha : []
+  const annualEmissions = Array.isArray(t?.annual_emissions_Mg) ? t.annual_emissions_Mg : []
+
+  if (years.length === 0 || annualLoss.length === 0) return null
 
   return (
     <section id="past" className="py-24 relative">
@@ -322,11 +327,11 @@ const PastAnalysis = ({ data }) => {
             </h3>
             <Plot
               data={[{
-                x: t.years, y: t.annual_loss_ha, type: 'bar',
+                x: years, y: annualLoss, type: 'bar',
                 marker: {
-                  color: t.annual_loss_ha.map(v => {
-                    const max = Math.max(...(t.annual_loss_ha.length > 0 ? t.annual_loss_ha : [1]))
-                    const r = v / max
+                  color: annualLoss.map(v => {
+                    const max = Math.max(...(annualLoss.length > 0 ? annualLoss : [1]))
+                    const r = v / (max || 1)
                     return r > 0.8 ? COLORS.red : r > 0.5 ? COLORS.warning : COLORS.teal
                   }),
                   opacity: 0.9,
@@ -349,7 +354,7 @@ const PastAnalysis = ({ data }) => {
             </h3>
             <Plot
               data={[{
-                x: t.years, y: t.cumulative_loss_ha, type: 'scatter', mode: 'lines+markers',
+                x: years, y: cumulativeLoss, type: 'scatter', mode: 'lines+markers',
                 fill: 'tozeroy', fillcolor: 'rgba(255, 82, 82, 0.1)',
                 line: { color: COLORS.red, width: 3, shape: 'spline' },
                 marker: { size: 6, color: COLORS.red, symbol: 'circle' },
@@ -371,7 +376,7 @@ const PastAnalysis = ({ data }) => {
           </h3>
           <Plot
             data={[{
-              x: t.years, y: t.annual_emissions_Mg, type: 'scatter', mode: 'lines+markers',
+              x: years, y: annualEmissions, type: 'scatter', mode: 'lines+markers',
               fill: 'tozeroy', fillcolor: 'rgba(255, 193, 7, 0.08)',
               line: { color: COLORS.warning, width: 3, shape: 'spline' },
               marker: { size: 6, color: COLORS.warning },
@@ -394,9 +399,9 @@ const PastAnalysis = ({ data }) => {
             </h3>
             <Plot
               data={[{
-                z: states.slice(0, 15).map(s => s.annual_losses),
-                x: Array.from({ length: 20 }, (_, i) => 2001 + i),
-                y: states.slice(0, 15).map(s => s.name),
+                z: states.slice(0, 15).map(s => Array.isArray(s.annual_losses) ? s.annual_losses : []),
+                x: years.length === 20 ? years : Array.from({ length: 20 }, (_, i) => 2001 + i),
+                y: states.slice(0, 15).map(s => s.name || ''),
                 type: 'heatmap',
                 colorscale: [[0, '#060910'], [0.2, '#0f291e'], [0.4, '#1b5e3a'], [0.6, '#d97706'], [0.8, '#dc2626'], [1, '#991b1b']],
                 hovertemplate: '<b>%{y}</b> (%{x})<br>Loss: %{z:,.0f} ha<extra></extra>',
@@ -599,8 +604,8 @@ const FutureScenarios = ({ data }) => {
           </h3>
           <Plot
             data={[{
-              x: cf.reforestation_scenario.years,
-              y: cf.reforestation_scenario.carbon_saved_Mg || cf.reforestation_scenario.years.map(() => 0),
+              x: cf?.reforestation_scenario?.years || [],
+              y: cf?.reforestation_scenario?.carbon_saved_Mg || (cf?.reforestation_scenario?.years || []).map(() => 0),
               type: 'bar',
               marker: { color: 'rgba(0, 230, 118, 0.8)', line: { width: 0 }, opacity: 0.9 },
               hovertemplate: '<b>%{x}</b><br>Carbon Saved: %{y:,.0f} Mg CO₂<extra></extra>',
@@ -804,11 +809,11 @@ const MLInsights = ({ data }) => {
                 </div>
               </div>
               
-              {featureImp[selectedModel] ? (
+              {Array.isArray(featureImp[selectedModel]) && featureImp[selectedModel].length > 0 ? (
                 <Plot
                   data={[{
-                    y: featureImp[selectedModel].map(f => f.feature.replace(/_/g, ' ')).reverse(),
-                    x: featureImp[selectedModel].map(f => f.importance).reverse(),
+                    y: featureImp[selectedModel].map(f => ((f?.feature) || '').replace(/_/g, ' ')).reverse(),
+                    x: featureImp[selectedModel].map(f => f?.importance ?? 0).reverse(),
                     type: 'bar', orientation: 'h',
                     marker: { color: 'rgba(179, 136, 255, 0.8)', line: { width: 0 } },
                     hovertemplate: '<b>%{y}</b><br>Importance: %{x:.4f}<extra></extra>'
@@ -875,12 +880,12 @@ const MLInsights = ({ data }) => {
 // SECTION: REFORESTATION PLAN
 // ============================================================================
 const ReforestationPlan = ({ data }) => {
-  const plan = data.reforestationPlan
-  const o = data.overview
-  if (!plan || !o) return null
+  const plan = Array.isArray(data?.reforestationPlan) ? data.reforestationPlan : []
+  const o = data?.overview || {}
+  if (plan.length === 0 || !data?.overview) return null
 
   // Filter out states that don't need reforestation and sort
-  const sorted = [...(plan || [])].filter(s => s && s.projected_loss_avoidance_ha > 0).sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+  const sorted = [...plan].filter(s => s && (s.projected_loss_avoidance_ha || 0) > 0).sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
   const priorityColors = { Critical: COLORS.red, High: COLORS.warning, Moderate: COLORS.blue, Low: COLORS.green }
 
   return (
@@ -891,9 +896,9 @@ const ReforestationPlan = ({ data }) => {
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {[
-          { label: 'Total Avoidance Target', value: fmtHa(o.total_projected_loss_avoidance_ha), detail: `Across ${o.num_states} states by 2030`, color: 'text-primary', icon: Trees },
-          { label: 'Carbon Savings Potential', value: `${fmt(o.total_carbon_savings_Mg)} Mg`, detail: 'CO₂ prevented from atmosphere', color: 'text-secondary', icon: Leaf },
-          { label: 'Urgent Priority States', value: `${o.num_critical_states + o.num_high_states}`, detail: 'Critical + High priority zones', color: 'text-danger', icon: AlertTriangle },
+          { label: 'Total Avoidance Target', value: fmtHa(o.total_projected_loss_avoidance_ha || 0), detail: `Across ${o.num_states || 0} states by 2030`, color: 'text-primary', icon: Trees },
+          { label: 'Carbon Savings Potential', value: `${fmt(o.total_carbon_savings_Mg || 0)} Mg`, detail: 'CO₂ prevented from atmosphere', color: 'text-secondary', icon: Leaf },
+          { label: 'Urgent Priority States', value: `${(o.num_critical_states || 0) + (o.num_high_states || 0)}`, detail: 'Critical + High priority zones', color: 'text-danger', icon: AlertTriangle },
         ].map((item, i) => (
           <FadeInSection key={i} delay={i * 0.1}>
             <SpotlightCard className="h-full bg-gradient-to-br from-card to-white/[0.02]">
@@ -914,10 +919,10 @@ const ReforestationPlan = ({ data }) => {
           <h3 className="text-xl font-bold text-white mb-6">Priority Scores by State</h3>
           <Plot
             data={[{
-              y: sorted.map(s => s.name).reverse(),
-              x: sorted.map(s => s.priority_score).reverse(),
+              y: sorted.map(s => s?.name || '').reverse(),
+              x: sorted.map(s => s?.priority_score || 0).reverse(),
               type: 'bar', orientation: 'h',
-              marker: { color: sorted.map(s => priorityColors[s.priority_label] || COLORS.blue).reverse(), opacity: 0.9, line: {width: 0} },
+              marker: { color: sorted.map(s => priorityColors[s?.priority_label] || COLORS.blue).reverse(), opacity: 0.9, line: {width: 0} },
               hovertemplate: '<b>%{y}</b><br>Score: %{x:.1f}/100<extra></extra>',
             }]}
             layout={{ ...PLOTLY_LAYOUT, margin: { t: 10, r: 20, b: 50, l: 160 }, xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Priority Score (0-100)', range: [0, 100] }, height: Math.max(400, sorted.length * 30) }}
