@@ -69,6 +69,10 @@ def index():
 # API ENDPOINTS
 # ============================================================================
 
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    return jsonify({"status": "healthy"}), 200
+
 @app.route('/api/overview')
 def api_overview():
     """Country-level summary statistics."""
