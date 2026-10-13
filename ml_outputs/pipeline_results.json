@@ -1,0 +1,3161 @@
+{
+  "overview": {
+    "total_area_ha": 315279651.0,
+    "total_forest_2000_ha": 38830351.0,
+    "total_loss_ha": 1933252.0,
+    "total_gain_ha": 255071.0,
+    "net_loss_ha": 1678181.0,
+    "total_emissions_Mg": 951103825.0,
+    "forest_cover_pct_2000": 12.32,
+    "forest_cover_pct_current": 11.78,
+    "isfr_forest_cover_pct": 21.76,
+    "isfr_tree_cover_pct": 3.41,
+    "isfr_total_cover_pct": 25.17,
+    "isfr_report_year": 2023,
+    "isfr_forest_area_sqkm": 713789,
+    "isfr_tree_cover_sqkm": 111818,
+    "avg_annual_loss_ha": 96662.6,
+    "total_projected_loss_avoidance_ha": 523529.8,
+    "total_carbon_savings_Mg": 257561438.6,
+    "num_states": 36,
+    "num_critical_states": 3,
+    "num_high_states": 13,
+    "n_districts": 666,
+    "ml_predicted_loss_2021_25_ha": 890159.2003942126,
+    "forecast_model": "Top-3 Blend",
+    "best_cv_r2_log": 0.9348523666555393,
+    "priority_counts_state": {
+      "High": 13,
+      "Low": 12,
+      "Moderate": 8,
+      "Critical": 3
+    },
+    "data_note": "All figures are raw GFW values at 30% canopy threshold; no scaling applied."
+  },
+  "model_performance": {
+    "Random Forest": {
+      "train_r2": 0.9899,
+      "test_r2": 0.9302,
+      "train_mae": 138.8,
+      "test_mae": 364.3,
+      "overfit_gap": 0.0597,
+      "grouped_cv": {
+        "r2_log": 0.9302366294428567,
+        "mae_log": 0.5353156303916,
+        "r2_ha": 0.8348016615831193,
+        "mae_ha": 364.27088819082024,
+        "wape_pct": 38.03641168180852
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8815104052395505,
+        "mae_log": 0.7572443131573653,
+        "r2_ha": 0.7454843421298134,
+        "mae_ha": 478.93349170161497,
+        "wape_pct": 42.19896059953028
+      },
+      "backtest_train_r2_log": 0.9899499111836022,
+      "overfit_gap_log": 0.05971328174074553,
+      "state_rollup_r2_ha": 0.8557376066085051,
+      "state_rollup_wape_pct": 27.938693854017625,
+      "seconds": 25.0
+    },
+    "Extra Trees": {
+      "train_r2": 0.9969,
+      "test_r2": 0.9318,
+      "train_mae": 69.2,
+      "test_mae": 353.8,
+      "overfit_gap": 0.0651,
+      "grouped_cv": {
+        "r2_log": 0.9318175648132909,
+        "mae_log": 0.5246618450638642,
+        "r2_ha": 0.8462135845647073,
+        "mae_ha": 353.766448352151,
+        "wape_pct": 36.93955983022406
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8867462196068843,
+        "mae_log": 0.7427229380884542,
+        "r2_ha": 0.7807783368505327,
+        "mae_ha": 469.885007169904,
+        "wape_pct": 41.40169615915362
+      },
+      "backtest_train_r2_log": 0.9968826597564716,
+      "overfit_gap_log": 0.06506509494318069,
+      "state_rollup_r2_ha": 0.8570802627411919,
+      "state_rollup_wape_pct": 27.273187125664965,
+      "seconds": 13.2
+    },
+    "Gradient Boosting": {
+      "train_r2": 0.9878,
+      "test_r2": 0.9296,
+      "train_mae": 125.4,
+      "test_mae": 393.7,
+      "overfit_gap": 0.0582,
+      "grouped_cv": {
+        "r2_log": 0.9296297576446858,
+        "mae_log": 0.5354014824758766,
+        "r2_ha": 0.781758197429806,
+        "mae_ha": 393.7239570757103,
+        "wape_pct": 41.11184013276804
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.876578854996453,
+        "mae_log": 0.7618259801372481,
+        "r2_ha": 0.735433468296602,
+        "mae_ha": 498.01796994155256,
+        "wape_pct": 43.880499183203746
+      },
+      "backtest_train_r2_log": 0.9877987248518774,
+      "overfit_gap_log": 0.05816896720719156,
+      "state_rollup_r2_ha": 0.7865437945918492,
+      "state_rollup_wape_pct": 31.2092054564072,
+      "seconds": 17.5
+    },
+    "HistGradientBoosting": {
+      "train_r2": 0.9846,
+      "test_r2": 0.9283,
+      "train_mae": 152.7,
+      "test_mae": 409.6,
+      "overfit_gap": 0.0563,
+      "grouped_cv": {
+        "r2_log": 0.9283041880967136,
+        "mae_log": 0.5406851964564072,
+        "r2_ha": 0.7573340301156845,
+        "mae_ha": 409.64238883940504,
+        "wape_pct": 42.77400980792334
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8843789504331979,
+        "mae_log": 0.7504641213824415,
+        "r2_ha": 0.716394104974933,
+        "mae_ha": 519.43792139781,
+        "wape_pct": 45.76781694904838
+      },
+      "backtest_train_r2_log": 0.9846406208013389,
+      "overfit_gap_log": 0.056336432704625294,
+      "state_rollup_r2_ha": 0.7664065039021821,
+      "state_rollup_wape_pct": 32.47214424676554,
+      "seconds": 6.3
+    },
+    "XGBoost": {
+      "train_r2": 0.9936,
+      "test_r2": 0.9283,
+      "train_mae": 100.9,
+      "test_mae": 391.2,
+      "overfit_gap": 0.0653,
+      "grouped_cv": {
+        "r2_log": 0.928267512694384,
+        "mae_log": 0.539569742439735,
+        "r2_ha": 0.7771797630265258,
+        "mae_ha": 391.19440481541284,
+        "wape_pct": 40.847709524853734
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8801915114674531,
+        "mae_log": 0.7575452690273362,
+        "r2_ha": 0.6691023716520702,
+        "mae_ha": 534.2701163570314,
+        "wape_pct": 47.07468569290037
+      },
+      "backtest_train_r2_log": 0.9936030129780373,
+      "overfit_gap_log": 0.06533550028365331,
+      "state_rollup_r2_ha": 0.8021367097451906,
+      "state_rollup_wape_pct": 29.780033699463132,
+      "seconds": 5.7
+    },
+    "AdaBoost": {
+      "train_r2": 0.9764,
+      "test_r2": 0.9288,
+      "train_mae": 202.8,
+      "test_mae": 398.8,
+      "overfit_gap": 0.0476,
+      "grouped_cv": {
+        "r2_log": 0.9288384907250333,
+        "mae_log": 0.5466825850065632,
+        "r2_ha": 0.7963822036075251,
+        "mae_ha": 398.7773588200283,
+        "wape_pct": 41.63950587650916
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8777593613607495,
+        "mae_log": 0.7668487355893219,
+        "r2_ha": 0.7275278354515742,
+        "mae_ha": 523.9874651803937,
+        "wape_pct": 46.168678492777495
+      },
+      "backtest_train_r2_log": 0.9764399262748824,
+      "overfit_gap_log": 0.04760143554984908,
+      "state_rollup_r2_ha": 0.8263900692973773,
+      "state_rollup_wape_pct": 30.449535994750587,
+      "seconds": 7.0
+    },
+    "Bagging Trees": {
+      "train_r2": 0.9893,
+      "test_r2": 0.9303,
+      "train_mae": 141.6,
+      "test_mae": 367.4,
+      "overfit_gap": 0.059,
+      "grouped_cv": {
+        "r2_log": 0.9302559237479269,
+        "mae_log": 0.532371535322524,
+        "r2_ha": 0.836214863989164,
+        "mae_ha": 367.3973383828674,
+        "wape_pct": 38.36286913548535
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8819783526436821,
+        "mae_log": 0.7561347217759274,
+        "r2_ha": 0.7472263777037016,
+        "mae_ha": 477.17424491984417,
+        "wape_pct": 42.04395288569296
+      },
+      "backtest_train_r2_log": 0.9893040768932087,
+      "overfit_gap_log": 0.05904815314528178,
+      "state_rollup_r2_ha": 0.8593792943541572,
+      "state_rollup_wape_pct": 28.31803053857071,
+      "seconds": 21.2
+    },
+    "Ridge": {
+      "train_r2": 0.948,
+      "test_r2": 0.9344,
+      "train_mae": 269.4,
+      "test_mae": 338.4,
+      "overfit_gap": 0.0136,
+      "grouped_cv": {
+        "r2_log": 0.9343529387573829,
+        "mae_log": 0.5419751021963071,
+        "r2_ha": 0.8655888432802452,
+        "mae_ha": 338.3631246363794,
+        "wape_pct": 35.331176670562016
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8991508978946485,
+        "mae_log": 0.7004298994003251,
+        "r2_ha": 0.840702223231584,
+        "mae_ha": 400.48776177250954,
+        "wape_pct": 35.287085936686466
+      },
+      "backtest_train_r2_log": 0.9479829159128861,
+      "overfit_gap_log": 0.013629977155503181,
+      "state_rollup_r2_ha": 0.8631775135050641,
+      "state_rollup_wape_pct": 30.60549137523149,
+      "seconds": 0.2
+    },
+    "Bayesian Ridge": {
+      "train_r2": 0.9493,
+      "test_r2": 0.9343,
+      "train_mae": 270.2,
+      "test_mae": 340.4,
+      "overfit_gap": 0.015,
+      "grouped_cv": {
+        "r2_log": 0.9343348576969289,
+        "mae_log": 0.5420408527617355,
+        "r2_ha": 0.8613897753127229,
+        "mae_ha": 340.40951199683326,
+        "wape_pct": 35.54485620034617
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8859802132005975,
+        "mae_log": 0.7364750698508443,
+        "r2_ha": 0.8162309584217956,
+        "mae_ha": 429.6282400668036,
+        "wape_pct": 37.854661428271655
+      },
+      "backtest_train_r2_log": 0.9493476409516325,
+      "overfit_gap_log": 0.015012783254703566,
+      "state_rollup_r2_ha": 0.8556462413114568,
+      "state_rollup_wape_pct": 30.9956907557566,
+      "seconds": 0.2
+    },
+    "ElasticNet": {
+      "train_r2": 0.9465,
+      "test_r2": 0.9346,
+      "train_mae": 277.5,
+      "test_mae": 331.7,
+      "overfit_gap": 0.0119,
+      "grouped_cv": {
+        "r2_log": 0.9345779310302919,
+        "mae_log": 0.5403051401305273,
+        "r2_ha": 0.8813968085747498,
+        "mae_ha": 331.74539109488205,
+        "wape_pct": 34.640166640539945
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.9004931355336298,
+        "mae_log": 0.6963194020745367,
+        "r2_ha": 0.8576890581506549,
+        "mae_ha": 386.0047279311503,
+        "wape_pct": 34.0109818741751
+      },
+      "backtest_train_r2_log": 0.9464650782835862,
+      "overfit_gap_log": 0.011887147253294317,
+      "state_rollup_r2_ha": 0.8913833158186599,
+      "state_rollup_wape_pct": 28.550936831299094,
+      "seconds": 0.3
+    },
+    "SVR": {
+      "train_r2": 0.9604,
+      "test_r2": 0.9289,
+      "train_mae": 218.6,
+      "test_mae": 420.7,
+      "overfit_gap": 0.0315,
+      "grouped_cv": {
+        "r2_log": 0.9289017254984254,
+        "mae_log": 0.5403537141826485,
+        "r2_ha": 0.7246945056897571,
+        "mae_ha": 420.6809544083054,
+        "wape_pct": 43.92663396199899
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8947536883940103,
+        "mae_log": 0.7343269209582294,
+        "r2_ha": 0.5526910750453582,
+        "mae_ha": 630.8761989029609,
+        "wape_pct": 55.58667397867784
+      },
+      "backtest_train_r2_log": 0.9603575698323423,
+      "overfit_gap_log": 0.031455844333916905,
+      "state_rollup_r2_ha": 0.7616433333951647,
+      "state_rollup_wape_pct": 37.93201147575161,
+      "seconds": 1.6
+    },
+    "CatBoost": {
+      "train_r2": 0.9753,
+      "test_r2": 0.9326,
+      "train_mae": 182.8,
+      "test_mae": 385.5,
+      "overfit_gap": 0.0426,
+      "grouped_cv": {
+        "r2_log": 0.9326299271121692,
+        "mae_log": 0.5289743883353057,
+        "r2_ha": 0.7926331580701764,
+        "mae_ha": 385.50595244840696,
+        "wape_pct": 40.25373311038261
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8895224926747864,
+        "mae_log": 0.7274773834435082,
+        "r2_ha": 0.7885379844204808,
+        "mae_ha": 442.02583720161084,
+        "wape_pct": 38.94701709369361
+      },
+      "backtest_train_r2_log": 0.9752726192148177,
+      "overfit_gap_log": 0.04264269210264848,
+      "state_rollup_r2_ha": 0.8317246425647483,
+      "state_rollup_wape_pct": 27.25479409499511,
+      "seconds": 17.7
+    },
+    "LightGBM": {
+      "train_r2": 0.9867,
+      "test_r2": 0.927,
+      "train_mae": 148.1,
+      "test_mae": 391.5,
+      "overfit_gap": 0.0597,
+      "grouped_cv": {
+        "r2_log": 0.9269994867640813,
+        "mae_log": 0.5455903492854901,
+        "r2_ha": 0.7815870966799462,
+        "mae_ha": 391.5482266266343,
+        "wape_pct": 40.88465486556011
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8836291508208233,
+        "mae_log": 0.7537371224529874,
+        "r2_ha": 0.6880036143013822,
+        "mae_ha": 527.7565692282936,
+        "wape_pct": 46.500775278591654
+      },
+      "backtest_train_r2_log": 0.9866670856884994,
+      "overfit_gap_log": 0.059667598924418086,
+      "state_rollup_r2_ha": 0.7925823832137562,
+      "state_rollup_wape_pct": 30.09214093061736,
+      "seconds": 2.6
+    },
+    "Stacking Ensemble": {
+      "train_r2": 0.9859,
+      "test_r2": 0.9349,
+      "train_mae": 136.9,
+      "test_mae": 339.7,
+      "overfit_gap": 0.051,
+      "grouped_cv": {
+        "r2_log": 0.9348523666555393,
+        "mae_log": 0.5211554675832608,
+        "r2_ha": 0.8605630464053183,
+        "mae_ha": 339.7416804516002,
+        "wape_pct": 35.47512261357852
+      },
+      "temporal_backtest_A_to_B": {
+        "r2_log": 0.8912605796860124,
+        "mae_log": 0.7281910380970816,
+        "r2_ha": 0.8115379306606999,
+        "mae_ha": 438.33855508746353,
+        "wape_pct": 38.622129660782164
+      },
+      "backtest_train_r2_log": 0.985872642857641,
+      "overfit_gap_log": 0.0510202762021017,
+      "state_rollup_r2_ha": 0.8399930622072858,
+      "state_rollup_wape_pct": 30.11182813074215,
+      "seconds": 69.8
+    },
+    "Top-3 Blend": {
+      "train_r2": 0.985,
+      "test_r2": 0.9354,
+      "train_mae": 250.0,
+      "test_mae": 333.5,
+      "overfit_gap": 0.0496,
+      "grouped_cv": {
+        "r2_log": 0.9353893261313379,
+        "mae_log": 0.5315221520373408,
+        "r2_ha": 0.8738060738419815,
+        "mae_ha": 333.5272689028274,
+        "wape_pct": 34.82622663069261
+      },
+      "members": [
+        "Stacking Ensemble",
+        "ElasticNet",
+        "Ridge"
+      ]
+    }
+  },
+  "feature_importance": {
+    "Random Forest": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.4722
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.273
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.1824
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0127
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0106
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0075
+      },
+      {
+        "feature": "biomass_density",
+        "importance": 0.0044
+      },
+      {
+        "feature": "gain_2000_2012_ha",
+        "importance": 0.0041
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.0036
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0035
+      }
+    ],
+    "Extra Trees": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.2943
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.2061
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.1175
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0821
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0816
+      },
+      {
+        "feature": "loss_std_ha",
+        "importance": 0.0507
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0454
+      },
+      {
+        "feature": "loss_max_ha",
+        "importance": 0.0429
+      },
+      {
+        "feature": "loss_first5_ha",
+        "importance": 0.0199
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0134
+      }
+    ],
+    "Gradient Boosting": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.4926
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.232
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.1742
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0248
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0166
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0088
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0072
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0062
+      },
+      {
+        "feature": "loss_first5_ha",
+        "importance": 0.0055
+      },
+      {
+        "feature": "biomass_density",
+        "importance": 0.0048
+      }
+    ],
+    "XGBoost": [
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.4596
+      },
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.2361
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.2122
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0215
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0141
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0103
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0066
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.0056
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0056
+      },
+      {
+        "feature": "loss_first5_ha",
+        "importance": 0.004
+      }
+    ],
+    "AdaBoost": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.6196
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.2248
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.0871
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0186
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0109
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0047
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0047
+      },
+      {
+        "feature": "biomass_density",
+        "importance": 0.0036
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.0035
+      },
+      {
+        "feature": "gain_2000_2012_ha",
+        "importance": 0.0035
+      }
+    ],
+    "Ridge": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.2824
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.2091
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0652
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0532
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0505
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.0461
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0444
+      },
+      {
+        "feature": "loss_first5_ha",
+        "importance": 0.0382
+      },
+      {
+        "feature": "recent_share",
+        "importance": 0.0381
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0376
+      }
+    ],
+    "Bayesian Ridge": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.2551
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.2022
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0682
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.062
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0577
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0516
+      },
+      {
+        "feature": "loss_first5_ha",
+        "importance": 0.049
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0429
+      },
+      {
+        "feature": "emis_hist_Mg",
+        "importance": 0.0426
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0424
+      }
+    ],
+    "ElasticNet": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.424
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.2169
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.1029
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0895
+      },
+      {
+        "feature": "recent_share",
+        "importance": 0.0432
+      },
+      {
+        "feature": "gain_2000_2012_ha",
+        "importance": 0.0283
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0255
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0243
+      },
+      {
+        "feature": "loss_over_extent",
+        "importance": 0.021
+      },
+      {
+        "feature": "biomass_density",
+        "importance": 0.0115
+      }
+    ],
+    "CatBoost": [
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.2069
+      },
+      {
+        "feature": "loss_last5_ha",
+        "importance": 0.1191
+      },
+      {
+        "feature": "emis_last5_Mg",
+        "importance": 0.1137
+      },
+      {
+        "feature": "loss_max_ha",
+        "importance": 0.0916
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.0621
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.0612
+      },
+      {
+        "feature": "loss_hist_ha",
+        "importance": 0.0517
+      },
+      {
+        "feature": "extent_2000_ha",
+        "importance": 0.0419
+      },
+      {
+        "feature": "extent_at_start_ha",
+        "importance": 0.0367
+      },
+      {
+        "feature": "biomass_stock",
+        "importance": 0.0323
+      }
+    ],
+    "LightGBM": [
+      {
+        "feature": "biomass_density",
+        "importance": 0.0989
+      },
+      {
+        "feature": "loss_last3_ha",
+        "importance": 0.0871
+      },
+      {
+        "feature": "extent_over_area",
+        "importance": 0.081
+      },
+      {
+        "feature": "emis_per_ha_lost",
+        "importance": 0.0724
+      },
+      {
+        "feature": "loss_slope",
+        "importance": 0.0708
+      },
+      {
+        "feature": "recent_share",
+        "importance": 0.0582
+      },
+      {
+        "feature": "loss_last1_ha",
+        "importance": 0.057
+      },
+      {
+        "feature": "area_ha",
+        "importance": 0.0537
+      },
+      {
+        "feature": "loss_over_extent",
+        "importance": 0.0476
+      },
+      {
+        "feature": "gain_2000_2012_ha",
+        "importance": 0.0456
+      }
+    ]
+  },
+  "smote_analysis": {
+    "hotspot_rate": 0.15015015015015015,
+    "n_rows": 1332,
+    "baseline (no balancing)": {
+      "f1": 0.8535353535353535,
+      "precision": 0.8622448979591837,
+      "recall": 0.845,
+      "pr_auc": 0.9527054437933052
+    },
+    "class_weight=balanced": {
+      "f1": 0.8723897911832946,
+      "precision": 0.8138528138528138,
+      "recall": 0.94,
+      "pr_auc": 0.9498537130028467
+    },
+    "SMOTE (train folds only)": {
+      "f1": 0.863961813842482,
+      "precision": 0.8264840182648402,
+      "recall": 0.905,
+      "pr_auc": 0.9462071679898941
+    },
+    "before_smote": {
+      "class_distribution": {
+        "Medium": 891,
+        "High": 441
+      },
+      "accuracy": 0.9309,
+      "cv_scores": [
+        0.8951,
+        0.9513,
+        0.8985,
+        0.9173,
+        0.9023
+      ],
+      "f1_macro": 0.9219,
+      "precision_macro": 0.9224,
+      "recall_macro": 0.9215
+    },
+    "after_smote": {
+      "class_distribution": {
+        "Medium": 891,
+        "High": 891
+      },
+      "accuracy": 0.9294,
+      "cv_scores": [
+        0.9026,
+        0.9663,
+        0.8985,
+        0.9248,
+        0.906
+      ],
+      "f1_macro": 0.9215,
+      "precision_macro": 0.9161,
+      "recall_macro": 0.9278
+    }
+  },
+  "forecasts": {
+    "states": {
+      "Andaman and Nicobar": {
+        "name": "Andaman and Nicobar",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          1410.0,
+          1886.0,
+          1631.0,
+          211.0,
+          3539.0,
+          818.0,
+          794.0,
+          1738.0,
+          838.0,
+          775.0,
+          98.0,
+          692.0,
+          476.0,
+          1358.0,
+          73.0,
+          160.0,
+          285.0,
+          107.0,
+          163.0,
+          965.0
+        ],
+        "bau_annual_loss_ha": [
+          56.152631578946966,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          53.344999999999615,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 2.807631578947351,
+        "carbon_avoided_Mg": 1715.3263855919597
+      },
+      "Andhra Pradesh": {
+        "name": "Andhra Pradesh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          836.0,
+          676.0,
+          1500.0,
+          1298.0,
+          1181.0,
+          1414.0,
+          1809.0,
+          2792.0,
+          2552.0,
+          1012.0,
+          3264.0,
+          1355.0,
+          1120.0,
+          1905.0,
+          1147.0,
+          2351.0,
+          2825.0,
+          2100.0,
+          1905.0,
+          1403.0
+        ],
+        "bau_annual_loss_ha": [
+          2211.3842105263157,
+          2257.968421052631,
+          2304.5526315789475,
+          2351.136842105263,
+          2397.7210526315785,
+          2444.305263157895,
+          2490.8894736842103,
+          2537.473684210526,
+          2584.057894736842,
+          2630.6421052631576
+        ],
+        "scenario_annual_loss_ha": [
+          2100.8149999999996,
+          2032.171578947368,
+          1958.8697368421053,
+          1880.9094736842105,
+          1798.2907894736838,
+          1711.0136842105262,
+          1619.0781578947365,
+          1522.4842105263153,
+          1421.2318421052632,
+          1315.3210526315788
+        ],
+        "avoided_loss_ha": 6849.946052631579,
+        "carbon_avoided_Mg": 3017829.4945330084
+      },
+      "Arunachal Pradesh": {
+        "name": "Arunachal Pradesh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          8592.0,
+          7001.0,
+          6404.0,
+          12793.0,
+          8847.0,
+          9793.0,
+          9572.0,
+          11005.0,
+          9071.0,
+          5928.0,
+          12445.0,
+          14346.0,
+          9269.0,
+          13033.0,
+          12346.0,
+          18994.0,
+          19002.0,
+          11340.0,
+          9599.0,
+          12672.0
+        ],
+        "bau_annual_loss_ha": [
+          14646.752631578946,
+          14984.290977443607,
+          15321.82932330827,
+          15659.36766917293,
+          15996.906015037592,
+          16334.444360902253,
+          16671.982706766914,
+          17009.52105263158,
+          17347.05939849624,
+          17684.5977443609
+        ],
+        "scenario_annual_loss_ha": [
+          13914.414999999997,
+          13485.861879699247,
+          13023.55492481203,
+          12527.494135338346,
+          11997.679511278195,
+          11434.111052631577,
+          10836.788759398492,
+          10205.712631578946,
+          9540.882669172932,
+          8842.29887218045
+        ],
+        "avoided_loss_ha": 45847.952443609014,
+        "carbon_avoided_Mg": 23862795.080185767
+      },
+      "Assam": {
+        "name": "Assam",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          6662.0,
+          8055.0,
+          5467.0,
+          12846.0,
+          8258.0,
+          9071.0,
+          12132.0,
+          15860.0,
+          15886.0,
+          10445.0,
+          14324.0,
+          16660.0,
+          8973.0,
+          22553.0,
+          13450.0,
+          25390.0,
+          18009.0,
+          14803.0,
+          11315.0,
+          18341.0
+        ],
+        "bau_annual_loss_ha": [
+          19401.757894736846,
+          19970.972932330827,
+          20540.187969924813,
+          21109.4030075188,
+          21678.618045112784,
+          22247.83308270677,
+          22817.048120300755,
+          23386.26315789474,
+          23955.478195488726,
+          24524.69323308271
+        ],
+        "scenario_annual_loss_ha": [
+          18431.670000000002,
+          17973.875639097747,
+          17459.15977443609,
+          16887.52240601504,
+          16258.963533834587,
+          15573.483157894738,
+          14831.081278195488,
+          14031.757894736844,
+          13175.5130075188,
+          12262.346616541356
+        ],
+        "avoided_loss_ha": 62746.88233082708,
+        "carbon_avoided_Mg": 27853759.14550885
+      },
+      "Bihar": {
+        "name": "Bihar",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          142.0,
+          40.0,
+          30.0,
+          72.0,
+          105.0,
+          68.0,
+          48.0,
+          87.0,
+          260.0,
+          113.0,
+          64.0,
+          98.0,
+          13.0,
+          12.0,
+          1.0,
+          7.0,
+          37.0,
+          8.0,
+          3.0,
+          15.0
+        ],
+        "bau_annual_loss_ha": [
+          8.531578947368374,
+          3.5203007518796454,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          8.104999999999954,
+          3.168270676691681,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.7786090225563838,
+        "carbon_avoided_Mg": 342.482924553818
+      },
+      "Chandigarh": {
+        "name": "Chandigarh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          1.0,
+          5.0,
+          3.0,
+          2.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Chhattisgarh": {
+        "name": "Chhattisgarh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          2622.0,
+          2031.0,
+          1288.0,
+          2282.0,
+          2415.0,
+          2395.0,
+          2096.0,
+          1932.0,
+          2149.0,
+          1346.0,
+          7079.0,
+          3350.0,
+          1521.0,
+          1729.0,
+          1476.0,
+          2533.0,
+          1859.0,
+          2650.0,
+          2361.0,
+          1187.0
+        ],
+        "bau_annual_loss_ha": [
+          2244.115789473684,
+          2237.3601503759396,
+          2230.6045112781953,
+          2223.8488721804506,
+          2217.0932330827063,
+          2210.337593984962,
+          2203.5819548872178,
+          2196.8263157894735,
+          2190.070676691729,
+          2183.315037593985
+        ],
+        "scenario_annual_loss_ha": [
+          2131.9099999999994,
+          2013.6241353383457,
+          1896.013834586466,
+          1779.0790977443605,
+          1662.8199248120297,
+          1547.2363157894733,
+          1432.3282706766913,
+          1318.0957894736841,
+          1204.538872180451,
+          1091.6575187969925
+        ],
+        "avoided_loss_ha": 6059.85037593985,
+        "carbon_avoided_Mg": 2785497.044197685
+      },
+      "Dadra and Nagar Haveli": {
+        "name": "Dadra and Nagar Haveli",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Daman and Diu": {
+        "name": "Daman and Diu",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Goa": {
+        "name": "Goa",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          7.0,
+          5.0,
+          11.0,
+          14.0,
+          39.0,
+          30.0,
+          55.0,
+          70.0,
+          62.0,
+          5.0,
+          112.0,
+          35.0,
+          19.0,
+          24.0,
+          12.0,
+          81.0,
+          60.0,
+          50.0,
+          42.0,
+          59.0
+        ],
+        "bau_annual_loss_ha": [
+          60.55263157894738,
+          62.54812030075189,
+          64.54360902255641,
+          66.5390977443609,
+          68.53458646616542,
+          70.53007518796994,
+          72.52556390977445,
+          74.52105263157895,
+          76.51654135338347,
+          78.51203007518798
+        ],
+        "scenario_annual_loss_ha": [
+          57.525000000000006,
+          56.293308270676704,
+          54.862067669172944,
+          53.23127819548873,
+          51.400939849624066,
+          49.371052631578955,
+          47.141616541353386,
+          44.712631578947374,
+          42.08409774436091,
+          39.25601503759399
+        ],
+        "avoided_loss_ha": 199.44530075187973,
+        "carbon_avoided_Mg": 101070.16528038848
+      },
+      "Gujarat": {
+        "name": "Gujarat",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          10.0,
+          2.0,
+          2.0,
+          4.0,
+          5.0,
+          4.0,
+          7.0,
+          19.0,
+          8.0,
+          4.0,
+          9.0,
+          15.0,
+          4.0,
+          6.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          1.373684210526311,
+          1.0330827067669128,
+          0.6924812030075138,
+          0.3518796992481157,
+          0.011278195488717557,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          1.3049999999999953,
+          0.9297744360902216,
+          0.5886090225563867,
+          0.28150375939849254,
+          0.008458646616538168,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.3490601503759366,
+        "carbon_avoided_Mg": 162.2600820232384
+      },
+      "Haryana": {
+        "name": "Haryana",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          25.0,
+          15.0,
+          16.0,
+          50.0,
+          24.0,
+          42.0,
+          44.0,
+          25.0,
+          51.0,
+          40.0,
+          18.0,
+          48.0,
+          2.0,
+          2.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          7.0,
+          2.0
+        ],
+        "bau_annual_loss_ha": [
+          0.5947368421052488,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.5649999999999863,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.029736842105262506,
+        "carbon_avoided_Mg": 11.1689991057739
+      },
+      "Himachal Pradesh": {
+        "name": "Himachal Pradesh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          344.0,
+          338.0,
+          88.0,
+          716.0,
+          332.0,
+          204.0,
+          358.0,
+          258.0,
+          429.0,
+          219.0,
+          53.0,
+          717.0,
+          65.0,
+          55.0,
+          13.0,
+          14.0,
+          85.0,
+          177.0,
+          162.0,
+          72.0
+        ],
+        "bau_annual_loss_ha": [
+          56.26842105263137,
+          39.251127819548685,
+          22.233834586465946,
+          5.216541353383263,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          53.4549999999998,
+          35.32601503759382,
+          18.898759398496054,
+          4.173233082706611,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 11.116917293232978,
+        "carbon_avoided_Mg": 5808.424862272673
+      },
+      "Jammu and Kashmir": {
+        "name": "Jammu and Kashmir",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          99.0,
+          400.0,
+          162.0,
+          890.0,
+          168.0,
+          519.0,
+          220.0,
+          267.0,
+          249.0,
+          288.0,
+          80.0,
+          399.0,
+          28.0,
+          41.0,
+          1.0,
+          5.0,
+          65.0,
+          72.0,
+          26.0,
+          41.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Jharkhand": {
+        "name": "Jharkhand",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          645.0,
+          90.0,
+          41.0,
+          183.0,
+          287.0,
+          475.0,
+          239.0,
+          344.0,
+          843.0,
+          381.0,
+          188.0,
+          332.0,
+          133.0,
+          142.0,
+          91.0,
+          167.0,
+          306.0,
+          161.0,
+          169.0,
+          199.0
+        ],
+        "bau_annual_loss_ha": [
+          176.31578947368408,
+          167.31729323308255,
+          158.31879699248105,
+          149.32030075187953,
+          140.321804511278,
+          131.3233082706765,
+          122.32481203007498,
+          113.32631578947348,
+          104.32781954887196,
+          95.32932330827043
+        ],
+        "scenario_annual_loss_ha": [
+          167.49999999999986,
+          150.5855639097743,
+          134.57097744360888,
+          119.45624060150362,
+          105.2413533834585,
+          91.92631578947355,
+          79.51112781954873,
+          67.99578947368408,
+          57.38030075187958,
+          47.664661654135216
+        ],
+        "avoided_loss_ha": 336.3932330827063,
+        "carbon_avoided_Mg": 159463.87057048987
+      },
+      "Karnataka": {
+        "name": "Karnataka",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          1751.0,
+          1008.0,
+          1227.0,
+          1381.0,
+          2246.0,
+          1130.0,
+          4145.0,
+          2455.0,
+          2286.0,
+          898.0,
+          1745.0,
+          2546.0,
+          2119.0,
+          2230.0,
+          1480.0,
+          3310.0,
+          3060.0,
+          3537.0,
+          2412.0,
+          2619.0
+        ],
+        "bau_annual_loss_ha": [
+          2954.773684210526,
+          3028.633082706767,
+          3102.4924812030076,
+          3176.351879699248,
+          3250.2112781954884,
+          3324.070676691729,
+          3397.9300751879696,
+          3471.78947368421,
+          3545.648872180451,
+          3619.5082706766916
+        ],
+        "scenario_annual_loss_ha": [
+          2807.0349999999994,
+          2725.7697744360903,
+          2637.1186090225565,
+          2541.0815037593984,
+          2437.658458646616,
+          2326.8494736842104,
+          2208.65454887218,
+          2083.0736842105257,
+          1950.106879699248,
+          1809.7541353383458
+        ],
+        "avoided_loss_ha": 9344.307706766918,
+        "carbon_avoided_Mg": 5000305.529855972
+      },
+      "Kerala": {
+        "name": "Kerala",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          744.0,
+          1031.0,
+          1778.0,
+          1580.0,
+          1458.0,
+          1885.0,
+          4344.0,
+          3076.0,
+          1048.0,
+          204.0,
+          4909.0,
+          3787.0,
+          2800.0,
+          3823.0,
+          2710.0,
+          7187.0,
+          9722.0,
+          6273.0,
+          7418.0,
+          6850.0
+        ],
+        "bau_annual_loss_ha": [
+          7390.847368421054,
+          7748.894736842107,
+          8106.942105263159,
+          8464.989473684212,
+          8823.036842105264,
+          9181.084210526316,
+          9539.13157894737,
+          9897.178947368422,
+          10255.226315789474,
+          10613.273684210528
+        ],
+        "scenario_annual_loss_ha": [
+          7021.305000000001,
+          6974.0052631578965,
+          6890.900789473685,
+          6771.991578947371,
+          6617.277631578949,
+          6426.758947368421,
+          6200.4355263157895,
+          5938.307368421053,
+          5640.374473684211,
+          5306.636842105264
+        ],
+        "avoided_loss_ha": 26232.61184210527,
+        "carbon_avoided_Mg": 14732819.515278684
+      },
+      "Lakshadweep": {
+        "name": "Lakshadweep",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Madhya Pradesh": {
+        "name": "Madhya Pradesh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          631.0,
+          386.0,
+          346.0,
+          527.0,
+          697.0,
+          839.0,
+          527.0,
+          555.0,
+          508.0,
+          202.0,
+          803.0,
+          401.0,
+          374.0,
+          435.0,
+          271.0,
+          386.0,
+          274.0,
+          269.0,
+          87.0,
+          287.0
+        ],
+        "bau_annual_loss_ha": [
+          236.0526315789469,
+          216.60526315789423,
+          197.15789473684163,
+          177.71052631578897,
+          158.2631578947363,
+          138.8157894736837,
+          119.36842105263105,
+          99.92105263157839,
+          80.47368421052579,
+          61.02631578947319
+        ],
+        "scenario_annual_loss_ha": [
+          224.24999999999955,
+          194.94473684210482,
+          167.5842105263154,
+          142.16842105263117,
+          118.69736842105223,
+          97.17105263157859,
+          77.58947368421018,
+          59.952631578947035,
+          44.260526315789186,
+          30.513157894736594
+        ],
+        "avoided_loss_ha": 328.26315789473534,
+        "carbon_avoided_Mg": 149078.22462117748
+      },
+      "Maharashtra": {
+        "name": "Maharashtra",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          954.0,
+          688.0,
+          519.0,
+          1547.0,
+          887.0,
+          809.0,
+          842.0,
+          940.0,
+          1599.0,
+          423.0,
+          2022.0,
+          1223.0,
+          466.0,
+          828.0,
+          395.0,
+          885.0,
+          804.0,
+          806.0,
+          1027.0,
+          676.0
+        ],
+        "bau_annual_loss_ha": [
+          833.1736842105261,
+          825.1902255639095,
+          817.206766917293,
+          809.2233082706764,
+          801.2398496240598,
+          793.2563909774433,
+          785.2729323308267,
+          777.2894736842102,
+          769.3060150375936,
+          761.3225563909771
+        ],
+        "scenario_annual_loss_ha": [
+          791.5149999999998,
+          742.6712030075186,
+          694.625751879699,
+          647.3786466165411,
+          600.9298872180449,
+          555.2794736842103,
+          510.4274060150373,
+          466.3736842105261,
+          423.11830827067655,
+          380.66127819548853
+        ],
+        "avoided_loss_ha": 2159.5005639097735,
+        "carbon_avoided_Mg": 941739.4739695984
+      },
+      "Manipur": {
+        "name": "Manipur",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          4335.0,
+          4239.0,
+          4828.0,
+          5252.0,
+          4859.0,
+          5354.0,
+          4275.0,
+          5885.0,
+          6180.0,
+          4330.0,
+          6288.0,
+          8796.0,
+          12432.0,
+          16592.0,
+          15670.0,
+          21748.0,
+          19752.0,
+          14925.0,
+          14276.0,
+          16025.0
+        ],
+        "bau_annual_loss_ha": [
+          18802.657894736847,
+          19659.858646616543,
+          20517.059398496243,
+          21374.260150375943,
+          22231.460902255643,
+          23088.661654135343,
+          23945.86240601504,
+          24803.06315789474,
+          25660.26390977444,
+          26517.46466165414
+        ],
+        "scenario_annual_loss_ha": [
+          17862.525000000005,
+          17693.87278195489,
+          17439.500488721806,
+          17099.408120300755,
+          16673.595676691733,
+          16162.06315789474,
+          15564.810563909774,
+          14881.837894736844,
+          14113.145150375944,
+          13258.73233082707
+        ],
+        "avoided_loss_ha": 65851.12161654136,
+        "carbon_avoided_Mg": 33643271.222417414
+      },
+      "Meghalaya": {
+        "name": "Meghalaya",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          4629.0,
+          3687.0,
+          2234.0,
+          5798.0,
+          4320.0,
+          5272.0,
+          6651.0,
+          7292.0,
+          5184.0,
+          6631.0,
+          5699.0,
+          5874.0,
+          8432.0,
+          19099.0,
+          17347.0,
+          21444.0,
+          23414.0,
+          14943.0,
+          13401.0,
+          13710.0
+        ],
+        "bau_annual_loss_ha": [
+          18818.836842105266,
+          19682.245112781955,
+          20545.653383458648,
+          21409.06165413534,
+          22272.46992481203,
+          23135.878195488724,
+          23999.286466165413,
+          24862.694736842106,
+          25726.1030075188,
+          26589.51127819549
+        ],
+        "scenario_annual_loss_ha": [
+          17877.895,
+          17714.02060150376,
+          17463.80537593985,
+          17127.249323308275,
+          16704.352443609023,
+          16195.114736842106,
+          15599.536203007516,
+          14917.616842105263,
+          14149.356654135341,
+          13294.755639097744
+        ],
+        "avoided_loss_ha": 65998.0377819549,
+        "carbon_avoided_Mg": 33344414.29496482
+      },
+      "Mizoram": {
+        "name": "Mizoram",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          4955.0,
+          4465.0,
+          3889.0,
+          5071.0,
+          4890.0,
+          3795.0,
+          1681.0,
+          3831.0,
+          4370.0,
+          2997.0,
+          3349.0,
+          6810.0,
+          10327.0,
+          17759.0,
+          22109.0,
+          33606.0,
+          40992.0,
+          24750.0,
+          23095.0,
+          24060.0
+        ],
+        "bau_annual_loss_ha": [
+          28863.678947368422,
+          30437.357894736848,
+          32011.036842105266,
+          33584.71578947368,
+          35158.39473684211,
+          36732.073684210525,
+          38305.752631578944,
+          39879.43157894736,
+          41453.11052631579,
+          43026.789473684206
+        ],
+        "scenario_annual_loss_ha": [
+          27420.495,
+          27393.622105263163,
+          27209.381315789477,
+          26867.772631578948,
+          26368.79605263158,
+          25712.451578947366,
+          24898.73921052631,
+          23927.658947368418,
+          22799.210789473684,
+          21513.394736842103
+        ],
+        "avoided_loss_ha": 105340.8197368421,
+        "carbon_avoided_Mg": 52514629.01249148
+      },
+      "NCT of Delhi": {
+        "name": "NCT of Delhi",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          1.0,
+          1.0,
+          3.0,
+          3.0,
+          1.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.04736842105263106,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.044999999999999506,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0023684210526315544,
+        "carbon_avoided_Mg": 0.7861184210526235
+      },
+      "Nagaland": {
+        "name": "Nagaland",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          12333.0,
+          7759.0,
+          7162.0,
+          9845.0,
+          8864.0,
+          7045.0,
+          4974.0,
+          6539.0,
+          7250.0,
+          4820.0,
+          6749.0,
+          11113.0,
+          11716.0,
+          19591.0,
+          17451.0,
+          20453.0,
+          20558.0,
+          14666.0,
+          11280.0,
+          15283.0
+        ],
+        "bau_annual_loss_ha": [
+          17040.373684210528,
+          17589.69022556391,
+          18139.006766917293,
+          18688.323308270676,
+          19237.639849624058,
+          19786.956390977444,
+          20336.272932330827,
+          20885.58947368421,
+          21434.90601503759,
+          21984.222556390978
+        ],
+        "scenario_annual_loss_ha": [
+          16188.355000000001,
+          15830.72120300752,
+          15418.155751879698,
+          14950.65864661654,
+          14428.229887218044,
+          13850.86947368421,
+          13218.577406015036,
+          12531.353684210526,
+          11789.198308270676,
+          10992.111278195489
+        ],
+        "avoided_loss_ha": 55924.75056390977,
+        "carbon_avoided_Mg": 28719987.20883382
+      },
+      "Odisha": {
+        "name": "Odisha",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          2977.0,
+          3976.0,
+          5382.0,
+          4462.0,
+          3602.0,
+          4226.0,
+          5886.0,
+          5939.0,
+          4790.0,
+          2394.0,
+          5593.0,
+          3779.0,
+          5353.0,
+          7491.0,
+          3867.0,
+          8340.0,
+          10130.0,
+          9792.0,
+          7759.0,
+          8873.0
+        ],
+        "bau_annual_loss_ha": [
+          8679.447368421053,
+          8960.294736842106,
+          9241.14210526316,
+          9521.989473684212,
+          9802.836842105266,
+          10083.684210526317,
+          10364.53157894737,
+          10645.378947368423,
+          10926.226315789476,
+          11207.073684210527
+        ],
+        "scenario_annual_loss_ha": [
+          8245.475,
+          8064.265263157896,
+          7854.970789473686,
+          7617.59157894737,
+          7352.127631578949,
+          7058.578947368422,
+          6736.94552631579,
+          6387.227368421053,
+          6009.424473684212,
+          5603.5368421052635
+        ],
+        "avoided_loss_ha": 28502.461842105266,
+        "carbon_avoided_Mg": 12482352.635877345
+      },
+      "Puducherry": {
+        "name": "Puducherry",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          1.0,
+          2.0,
+          1.0,
+          2.0,
+          5.0,
+          2.0,
+          14.0,
+          16.0,
+          8.0,
+          2.0,
+          5.0,
+          4.0,
+          5.0,
+          4.0,
+          3.0,
+          27.0,
+          9.0,
+          10.0,
+          9.0,
+          17.0
+        ],
+        "bau_annual_loss_ha": [
+          13.34736842105263,
+          13.92330827067669,
+          14.49924812030075,
+          15.07518796992481,
+          15.651127819548872,
+          16.227067669172932,
+          16.803007518796992,
+          17.378947368421052,
+          17.954887218045112,
+          18.530827067669172
+        ],
+        "scenario_annual_loss_ha": [
+          12.679999999999998,
+          12.530977443609022,
+          12.324360902255638,
+          12.060150375939848,
+          11.738345864661653,
+          11.358947368421052,
+          10.921954887218043,
+          10.42736842105263,
+          9.875187969924813,
+          9.265413533834586
+        ],
+        "avoided_loss_ha": 46.208270676691725,
+        "carbon_avoided_Mg": 22505.010294572046
+      },
+      "Punjab": {
+        "name": "Punjab",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          102.0,
+          80.0,
+          85.0,
+          113.0,
+          143.0,
+          87.0,
+          99.0,
+          89.0,
+          84.0,
+          115.0,
+          48.0,
+          138.0,
+          17.0,
+          29.0,
+          2.0,
+          1.0,
+          0.0,
+          8.0,
+          7.0,
+          7.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Rajasthan": {
+        "name": "Rajasthan",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          14.0,
+          17.0,
+          14.0,
+          25.0,
+          20.0,
+          12.0,
+          37.0,
+          35.0,
+          33.0,
+          7.0,
+          19.0,
+          18.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bau_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 0.0,
+        "carbon_avoided_Mg": 0.0
+      },
+      "Sikkim": {
+        "name": "Sikkim",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          36.0,
+          9.0,
+          15.0,
+          57.0,
+          26.0,
+          11.0,
+          97.0,
+          121.0,
+          137.0,
+          79.0,
+          291.0,
+          84.0,
+          22.0,
+          21.0,
+          6.0,
+          47.0,
+          59.0,
+          62.0,
+          154.0,
+          132.0
+        ],
+        "bau_annual_loss_ha": [
+          106.71052631578947,
+          109.89248120300752,
+          113.07443609022556,
+          116.2563909774436,
+          119.43834586466166,
+          122.6203007518797,
+          125.80225563909774,
+          128.9842105263158,
+          132.16616541353383,
+          135.34812030075187
+        ],
+        "scenario_annual_loss_ha": [
+          101.37499999999999,
+          98.90323308270678,
+          96.11327067669173,
+          93.00511278195489,
+          89.57875939849625,
+          85.83421052631579,
+          81.77146616541351,
+          77.39052631578947,
+          72.69139097744362,
+          67.67406015037594
+        ],
+        "avoided_loss_ha": 345.95620300751875,
+        "carbon_avoided_Mg": 185214.70927630295
+      },
+      "Tamil Nadu": {
+        "name": "Tamil Nadu",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          2152.0,
+          1177.0,
+          587.0,
+          1268.0,
+          986.0,
+          1675.0,
+          1769.0,
+          1350.0,
+          467.0,
+          103.0,
+          1298.0,
+          1695.0,
+          643.0,
+          1023.0,
+          1022.0,
+          1341.0,
+          1582.0,
+          2027.0,
+          2064.0,
+          1291.0
+        ],
+        "bau_annual_loss_ha": [
+          1422.4631578947365,
+          1436.4120300751877,
+          1450.3609022556386,
+          1464.3097744360898,
+          1478.2586466165408,
+          1492.207518796992,
+          1506.1563909774432,
+          1520.1052631578941,
+          1534.0541353383453,
+          1548.0030075187965
+        ],
+        "scenario_annual_loss_ha": [
+          1351.3399999999997,
+          1292.770827067669,
+          1232.8067669172929,
+          1171.4478195488718,
+          1108.6939849624055,
+          1044.5452631578944,
+          979.001654135338,
+          912.0631578947365,
+          843.72977443609,
+          774.0015037593982
+        ],
+        "avoided_loss_ha": 4141.930075187968,
+        "carbon_avoided_Mg": 1900504.8142371005
+      },
+      "Telangana": {
+        "name": "Telangana",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          1024.0,
+          1011.0,
+          1258.0,
+          1318.0,
+          1483.0,
+          1975.0,
+          2552.0,
+          4700.0,
+          5680.0,
+          1274.0,
+          7144.0,
+          5630.0,
+          1015.0,
+          2598.0,
+          275.0,
+          413.0,
+          355.0,
+          461.0,
+          700.0,
+          272.0
+        ],
+        "bau_annual_loss_ha": [
+          1397.6736842105256,
+          1334.890225563909,
+          1272.1067669172926,
+          1209.323308270676,
+          1146.5398496240596,
+          1083.756390977443,
+          1020.9729323308266,
+          958.18947368421,
+          895.4060150375935,
+          832.622556390977
+        ],
+        "scenario_annual_loss_ha": [
+          1327.7899999999993,
+          1201.4012030075182,
+          1081.2907518796987,
+          967.4586466165409,
+          859.9048872180447,
+          758.6294736842101,
+          663.6324060150372,
+          574.913684210526,
+          492.47330827067645,
+          416.3112781954885
+        ],
+        "avoided_loss_ha": 2807.675563909773,
+        "carbon_avoided_Mg": 941769.1044233288
+      },
+      "Tripura": {
+        "name": "Tripura",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          3090.0,
+          1888.0,
+          1216.0,
+          2900.0,
+          1493.0,
+          6144.0,
+          5763.0,
+          5246.0,
+          4980.0,
+          3331.0,
+          2522.0,
+          2082.0,
+          2661.0,
+          5394.0,
+          4096.0,
+          5226.0,
+          14964.0,
+          7260.0,
+          10569.0,
+          11376.0
+        ],
+        "bau_annual_loss_ha": [
+          9453.126315789474,
+          9866.752631578947,
+          10280.378947368421,
+          10694.005263157895,
+          11107.631578947367,
+          11521.25789473684,
+          11934.884210526314,
+          12348.510526315788,
+          12762.136842105261,
+          13175.763157894735
+        ],
+        "scenario_annual_loss_ha": [
+          8980.47,
+          8880.077368421053,
+          8738.322105263158,
+          8555.204210526315,
+          8330.723684210525,
+          8064.880526315787,
+          7757.674736842103,
+          7409.106315789472,
+          7019.175263157894,
+          6587.881578947367
+        ],
+        "avoided_loss_ha": 32820.93157894737,
+        "carbon_avoided_Mg": 17296462.664220046
+      },
+      "Uttar Pradesh": {
+        "name": "Uttar Pradesh",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          522.0,
+          147.0,
+          105.0,
+          254.0,
+          244.0,
+          382.0,
+          353.0,
+          240.0,
+          349.0,
+          228.0,
+          483.0,
+          446.0,
+          63.0,
+          104.0,
+          68.0,
+          115.0,
+          39.0,
+          66.0,
+          11.0,
+          6.0
+        ],
+        "bau_annual_loss_ha": [
+          38.96315789473675,
+          22.554887218044996,
+          6.146616541353296,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scenario_annual_loss_ha": [
+          37.014999999999915,
+          20.299398496240496,
+          5.224624060150302,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "avoided_loss_ha": 5.125639097744332,
+        "carbon_avoided_Mg": 2195.9863541219793
+      },
+      "Uttarakhand": {
+        "name": "Uttarakhand",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          330.0,
+          535.0,
+          269.0,
+          800.0,
+          631.0,
+          1148.0,
+          1014.0,
+          1709.0,
+          951.0,
+          701.0,
+          811.0,
+          1364.0,
+          468.0,
+          607.0,
+          779.0,
+          885.0,
+          690.0,
+          622.0,
+          788.0,
+          992.0
+        ],
+        "bau_annual_loss_ha": [
+          903.4789473684209,
+          912.8864661654134,
+          922.2939849624058,
+          931.7015037593984,
+          941.1090225563909,
+          950.5165413533833,
+          959.9240601503758,
+          969.3315789473684,
+          978.7390977443608,
+          988.1466165413533
+        ],
+        "scenario_annual_loss_ha": [
+          858.3049999999998,
+          821.597819548872,
+          783.949887218045,
+          745.3612030075187,
+          705.8317669172932,
+          665.3615789473683,
+          623.9506390977442,
+          581.598947368421,
+          538.3065037593985,
+          494.07330827067665
+        ],
+        "avoided_loss_ha": 2639.7911654135332,
+        "carbon_avoided_Mg": 1405656.8110370834
+      },
+      "West Bengal": {
+        "name": "West Bengal",
+        "method": "linear_all",
+        "past_annual_loss_ha": [
+          387.0,
+          359.0,
+          194.0,
+          570.0,
+          447.0,
+          777.0,
+          1503.0,
+          1534.0,
+          897.0,
+          2021.0,
+          946.0,
+          1228.0,
+          331.0,
+          653.0,
+          148.0,
+          245.0,
+          483.0,
+          284.0,
+          345.0,
+          282.0
+        ],
+        "bau_annual_loss_ha": [
+          508.45789473684187,
+          491.9586466165411,
+          475.4593984962404,
+          458.96015037593963,
+          442.46090225563887,
+          425.9616541353381,
+          409.46240601503735,
+          392.96315789473664,
+          376.4639097744359,
+          359.9646616541351
+        ],
+        "scenario_annual_loss_ha": [
+          483.03499999999974,
+          442.762781954887,
+          404.14048872180433,
+          367.16812030075175,
+          331.8456766917292,
+          298.1731578947367,
+          266.15056390977423,
+          235.77789473684197,
+          207.05515037593975,
+          179.98233082706756
+        ],
+        "avoided_loss_ha": 1126.0216165413526,
+        "carbon_avoided_Mg": 478137.4038119674
+      }
+    },
+    "method_backtest_wape": {
+      "mean_last5": 40.95179254880741,
+      "mean_last10": 50.69020306160114,
+      "linear_all": 35.73051311626533,
+      "linear_last10": 35.91809126737337,
+      "damped_trend": 36.10106378870083
+    },
+    "assumption": "Scenario assumes annual loss falls 50% below BAU by 2030 (linear ramp). Policy what-if, NOT learned from data.",
+    "national": {
+      "name": "India",
+      "method": "linear_all",
+      "past_annual_loss_ha": [
+        62361.0,
+        53003.0,
+        47749.0,
+        74131.0,
+        62503.0,
+        67407.0,
+        73906.0,
+        85954.0,
+        79201.0,
+        51317.0,
+        88458.0,
+        95066.0,
+        80867.0,
+        139141.0,
+        116309.0,
+        175362.0,
+        189420.0,
+        132229.0,
+        121154.0,
+        137714.0
+      ],
+      "bau_annual_loss_ha": [
+        156297.4210526316,
+        161976.9278195489,
+        167656.43458646617,
+        173335.94135338347,
+        179015.44812030077,
+        184694.95488721807,
+        190374.46165413538,
+        196053.96842105265,
+        201733.47518796995,
+        207412.98195488725
+      ],
+      "scenario_annual_loss_ha": [
+        148482.55000000002,
+        145779.23503759402,
+        142507.96939849624,
+        138668.7530827068,
+        134261.58609022558,
+        129286.46842105265,
+        123743.40007518798,
+        117632.38105263158,
+        110953.41135338348,
+        103706.49097744362
+      ],
+      "avoided_loss_ha": 523529.7695488723,
+      "carbon_avoided_Mg": 257561438.6118835,
+      "bau_interval_halfwidth_ha": 44783.313418216836
+    }
+  },
+  "state_priority": [
+    {
+      "subnational1": "Odisha",
+      "area_ha": 15563805,
+      "extent_2000_ha": 2680194,
+      "pred_loss_2021_25_ha": 39201.24224100794,
+      "fuzzy_priority_score": 81.328125,
+      "fuzzy_priority_label": "Critical",
+      "total_loss_2001_2020_ha": 114611
+    },
+    {
+      "subnational1": "Assam",
+      "area_ha": 7849232,
+      "extent_2000_ha": 2750134,
+      "pred_loss_2021_25_ha": 104715.17529536526,
+      "fuzzy_priority_score": 77.56972111553786,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 268500
+    },
+    {
+      "subnational1": "Karnataka",
+      "area_ha": 19137912,
+      "extent_2000_ha": 2276202,
+      "pred_loss_2021_25_ha": 17384.162777658068,
+      "fuzzy_priority_score": 72.77972027972027,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 43585
+    },
+    {
+      "subnational1": "Andhra Pradesh",
+      "area_ha": 16004980,
+      "extent_2000_ha": 1105912,
+      "pred_loss_2021_25_ha": 8292.909816321566,
+      "fuzzy_priority_score": 71.29548762736535,
+      "fuzzy_priority_label": "Critical",
+      "total_loss_2001_2020_ha": 34445
+    },
+    {
+      "subnational1": "Telangana",
+      "area_ha": 11471211,
+      "extent_2000_ha": 663616,
+      "pred_loss_2021_25_ha": 2518.977726984816,
+      "fuzzy_priority_score": 70.42521994134896,
+      "fuzzy_priority_label": "Critical",
+      "total_loss_2001_2020_ha": 41138
+    },
+    {
+      "subnational1": "Arunachal Pradesh",
+      "area_ha": 8199543,
+      "extent_2000_ha": 6307313,
+      "pred_loss_2021_25_ha": 108394.90616872876,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 222052
+    },
+    {
+      "subnational1": "Manipur",
+      "area_ha": 2232073,
+      "extent_2000_ha": 1703677,
+      "pred_loss_2021_25_ha": 115191.39690725479,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 196041
+    },
+    {
+      "subnational1": "Tripura",
+      "area_ha": 1053626,
+      "extent_2000_ha": 669293,
+      "pred_loss_2021_25_ha": 45671.255414769956,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 102201
+    },
+    {
+      "subnational1": "Meghalaya",
+      "area_ha": 2251620,
+      "extent_2000_ha": 1683888,
+      "pred_loss_2021_25_ha": 99177.23321153322,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 195061
+    },
+    {
+      "subnational1": "Mizoram",
+      "area_ha": 2125175,
+      "extent_2000_ha": 1931959,
+      "pred_loss_2021_25_ha": 165708.52579774664,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 246801
+    },
+    {
+      "subnational1": "Nagaland",
+      "area_ha": 1659962,
+      "extent_2000_ha": 1310344,
+      "pred_loss_2021_25_ha": 94909.63770773607,
+      "fuzzy_priority_score": 70.0,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 225451
+    },
+    {
+      "subnational1": "Kerala",
+      "area_ha": 3770052,
+      "extent_2000_ha": 2598221,
+      "pred_loss_2021_25_ha": 49004.361408379256,
+      "fuzzy_priority_score": 65.6896551724138,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 72627
+    },
+    {
+      "subnational1": "Chhattisgarh",
+      "area_ha": 13543155,
+      "extent_2000_ha": 2663574,
+      "pred_loss_2021_25_ha": 11444.688072538338,
+      "fuzzy_priority_score": 65.27397260273975,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 46301
+    },
+    {
+      "subnational1": "West Bengal",
+      "area_ha": 8536526,
+      "extent_2000_ha": 407919,
+      "pred_loss_2021_25_ha": 1867.841260946026,
+      "fuzzy_priority_score": 63.773291925465834,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 13634
+    },
+    {
+      "subnational1": "Tamil Nadu",
+      "area_ha": 13028087,
+      "extent_2000_ha": 1230520,
+      "pred_loss_2021_25_ha": 8317.471198210425,
+      "fuzzy_priority_score": 63.773291925465834,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 25520
+    },
+    {
+      "subnational1": "Maharashtra",
+      "area_ha": 30733885,
+      "extent_2000_ha": 1073403,
+      "pred_loss_2021_25_ha": 4115.377230842784,
+      "fuzzy_priority_score": 60.53784860557769,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 18340
+    },
+    {
+      "subnational1": "Andaman and Nicobar",
+      "area_ha": 761084,
+      "extent_2000_ha": 684402,
+      "pred_loss_2021_25_ha": 4750.082126762619,
+      "fuzzy_priority_score": 53.49056603773584,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 18017
+    },
+    {
+      "subnational1": "Uttar Pradesh",
+      "area_ha": 24075139,
+      "extent_2000_ha": 359975,
+      "pred_loss_2021_25_ha": 100.12376679060098,
+      "fuzzy_priority_score": 51.43322475570032,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 4225
+    },
+    {
+      "subnational1": "Madhya Pradesh",
+      "area_ha": 30805387,
+      "extent_2000_ha": 1078084,
+      "pred_loss_2021_25_ha": 1197.0463620576518,
+      "fuzzy_priority_score": 49.80769230769231,
+      "fuzzy_priority_label": "High",
+      "total_loss_2001_2020_ha": 8805
+    },
+    {
+      "subnational1": "Uttarakhand",
+      "area_ha": 5380852,
+      "extent_2000_ha": 1948840,
+      "pred_loss_2021_25_ha": 5691.992556756116,
+      "fuzzy_priority_score": 48.8961038961039,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 16094
+    },
+    {
+      "subnational1": "NCT of Delhi",
+      "area_ha": 150220,
+      "extent_2000_ha": 263,
+      "pred_loss_2021_25_ha": 0.07844771489228118,
+      "fuzzy_priority_score": 42.70240700218819,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 12
+    },
+    {
+      "subnational1": "Puducherry",
+      "area_ha": 54733,
+      "extent_2000_ha": 6911,
+      "pred_loss_2021_25_ha": 50.37786999312079,
+      "fuzzy_priority_score": 41.1038961038961,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 146
+    },
+    {
+      "subnational1": "Punjab",
+      "area_ha": 5022577,
+      "extent_2000_ha": 74700,
+      "pred_loss_2021_25_ha": 32.21007663148213,
+      "fuzzy_priority_score": 40.56962025316456,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 1254
+    },
+    {
+      "subnational1": "Rajasthan",
+      "area_ha": 34190098,
+      "extent_2000_ha": 12039,
+      "pred_loss_2021_25_ha": 1.7879931380468117,
+      "fuzzy_priority_score": 40.5078125,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 251
+    },
+    {
+      "subnational1": "Jharkhand",
+      "area_ha": 8003988,
+      "extent_2000_ha": 556330,
+      "pred_loss_2021_25_ha": 662.1570152182956,
+      "fuzzy_priority_score": 39.53961456102783,
+      "fuzzy_priority_label": "Moderate",
+      "total_loss_2001_2020_ha": 5416
+    },
+    {
+      "subnational1": "Bihar",
+      "area_ha": 9423241,
+      "extent_2000_ha": 153842,
+      "pred_loss_2021_25_ha": 41.95123943801728,
+      "fuzzy_priority_score": 39.35749588138385,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 1223
+    },
+    {
+      "subnational1": "Haryana",
+      "area_ha": 4402448,
+      "extent_2000_ha": 42647,
+      "pred_loss_2021_25_ha": 15.45929698498846,
+      "fuzzy_priority_score": 33.289036544850504,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 412
+    },
+    {
+      "subnational1": "Chandigarh",
+      "area_ha": 11812,
+      "extent_2000_ha": 702,
+      "pred_loss_2021_25_ha": 0.32725293231669644,
+      "fuzzy_priority_score": 30.81488933601609,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 13
+    },
+    {
+      "subnational1": "Sikkim",
+      "area_ha": 708307,
+      "extent_2000_ha": 250451,
+      "pred_loss_2021_25_ha": 502.7265905594081,
+      "fuzzy_priority_score": 30.81488933601609,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 1466
+    },
+    {
+      "subnational1": "Himachal Pradesh",
+      "area_ha": 5560349,
+      "extent_2000_ha": 1367108,
+      "pred_loss_2021_25_ha": 683.1054363942427,
+      "fuzzy_priority_score": 29.892086330935257,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 4699
+    },
+    {
+      "subnational1": "Goa",
+      "area_ha": 369568,
+      "extent_2000_ha": 146466,
+      "pred_loss_2021_25_ha": 259.3833569706685,
+      "fuzzy_priority_score": 27.743362831858406,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 792
+    },
+    {
+      "subnational1": "Jammu and Kashmir",
+      "area_ha": 10566005,
+      "extent_2000_ha": 1073020,
+      "pred_loss_2021_25_ha": 253.18383841094328,
+      "fuzzy_priority_score": 24.687499999999996,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 4020
+    },
+    {
+      "subnational1": "Lakshadweep",
+      "area_ha": 3482,
+      "extent_2000_ha": 0,
+      "pred_loss_2021_25_ha": 0.1317538589888007,
+      "fuzzy_priority_score": 20.0,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 0
+    },
+    {
+      "subnational1": "Dadra and Nagar Haveli",
+      "area_ha": 49152,
+      "extent_2000_ha": 457,
+      "pred_loss_2021_25_ha": 0.05285281647186993,
+      "fuzzy_priority_score": 20.0,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 0
+    },
+    {
+      "subnational1": "Daman and Diu",
+      "area_ha": 8354,
+      "extent_2000_ha": 18,
+      "pred_loss_2021_25_ha": 0.12655328025534948,
+      "fuzzy_priority_score": 20.0,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 0
+    },
+    {
+      "subnational1": "Gujarat",
+      "area_ha": 18572011,
+      "extent_2000_ha": 17927,
+      "pred_loss_2021_25_ha": 1.733771479599318,
+      "fuzzy_priority_score": 20.0,
+      "fuzzy_priority_label": "Low",
+      "total_loss_2001_2020_ha": 99
+    }
+  ]
+}
