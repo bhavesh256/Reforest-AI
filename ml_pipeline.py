@@ -1,1294 +1,662 @@
 """
-Reforestation ML Pipeline
-=========================
-Advanced ML pipeline for analyzing India's deforestation data and predicting
-reforestation priority areas. Uses ensemble learning, SMOTE, fuzzy logic,
-and time-series forecasting.
+Reforestation ML Pipeline — simplified, leakage-aware edition
+=============================================================
 
-Author: Reforestation Project
-Data Source: Global Forest Watch (India)
+Reads the six Global Forest Watch Excel workbooks from ./Dataset, engineers
+state-level indicators, scores reforestation priorities, evaluates a small set
+of widely used regression models, creates simple scenario forecasts, and saves
+JSON/CSV/model outputs.
 
-------------------------------------------------------------------------------
-FIX NOTES (this version)
-------------------------------------------------------------------------------
-The original pipeline ran without throwing errors, but the model-performance
-numbers were not trustworthy: Ridge Regression scored R^2 = 0.9965 on only
-36 samples, which is a classic sign of TARGET LEAKAGE, not a good model.
+Dependencies:
+    pip install pandas numpy scikit-learn openpyxl joblib
 
-Regression target: `total_loss_ha` = sum(tc_loss_ha_2001 .. tc_loss_ha_2020)
+Optional:
+    pip install imbalanced-learn  # not required; SMOTE intentionally omitted
 
-The old `feature_cols` list (used to train the regressors) included several
-columns that are just other summary statistics of that SAME underlying
-20-year loss series, or that are algebraically derived from the target:
-
-  - avg_annual_loss_ha   = mean(tc_loss_ha_2001..2020)   -> total_loss_ha / 20
-  - max_annual_loss_ha   = max(tc_loss_ha_2001..2020)
-  - std_annual_loss_ha   = std(tc_loss_ha_2001..2020)
-  - log_total_loss       = log1p(total_loss_ha)            -> direct transform of target
-  - remaining_forest_ratio uses `extent_2000_ha - total_loss_ha + gain`
-  - carbon_intensity     = total_emissions_Mg / total_loss_ha   -> divides BY target
-  - vulnerability_score / fuzzy_priority_score both embed total_loss_ha_norm
-
-Feeding any of these into a model that predicts `total_loss_ha` lets the
-model "predict" the target from disguised copies of itself, which is why
-every model (Ridge especially) looked almost perfect. It says nothing
-about real predictive power.
-
-Fix: the ML feature set below now only contains genuinely independent,
-structural predictors (baseline extent/area/biomass/carbon-flux data) that
-are not algebraic functions of the loss target. The loss-derived stats
-(trend, acceleration, vulnerability_score, fuzzy_priority_score) are still
-computed and used for the fuzzy-priority ranking and the reforestation
-plan (which is a legitimate, separate use — ranking states by *known*
-historical loss, not predicting an unknown future loss from itself),
-but they are excluded from `feature_cols` so the regressors are no longer
-trained on leaked information.
-
-Expect R^2 to drop substantially after this fix — that's the honest,
-correct result for 36 samples and truly independent features, not a
-regression.
-------------------------------------------------------------------------------
+Important:
+- The regression target is total_loss_ha across 2001–2020.
+- Predictors derived from that same loss series are excluded from regression.
+- CV metrics are estimates, not a promise of future accuracy. Small state-level
+  samples can produce low or negative R² without indicating a coding error.
+- Forecasts are illustrative scenarios, not causal estimates of policy impact.
 """
 
-import pandas as pd
-import numpy as np
+from __future__ import annotations
+
 import json
-import os
 import warnings
 from pathlib import Path
+from typing import Any
 
-# ML imports
-from sklearn.ensemble import (
-    RandomForestRegressor, RandomForestClassifier,
-    StackingRegressor, AdaBoostRegressor,
-    ExtraTreesRegressor, GradientBoostingRegressor,
-    HistGradientBoostingRegressor
-)
-from sklearn.svm import SVR
-from sklearn.linear_model import Ridge, ElasticNet
-from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
-from sklearn.model_selection import (
-    cross_val_score, LeaveOneOut, train_test_split, cross_val_predict
-)
-from sklearn.metrics import (
-    r2_score, mean_absolute_error, mean_squared_error,
-    accuracy_score, classification_report, confusion_matrix,
-    f1_score, precision_score, recall_score
-)
-import xgboost as xgb
-from catboost import CatBoostRegressor
-# pyrefly: ignore [missing-import]
-from imblearn.over_sampling import SMOTE
-from scipy.interpolate import UnivariateSpline
 import joblib
+import numpy as np
+import pandas as pd
 
-warnings.filterwarnings('ignore')
+from sklearn.base import clone
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Ridge
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+    median_absolute_error,
+    r2_score,
+)
+from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import TransformedTargetRegressor
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-DATA_DIR = Path('Dataset')
-OUTPUT_DIR = Path('ml_outputs')
-MODEL_DIR = Path('models')
-THRESHOLD = 30  # Standard forest cover definition (30% canopy)
-FORECAST_YEARS = list(range(2021, 2031))  # 10-year forecast
-PAST_YEARS = list(range(2001, 2021))  # Historical data
+warnings.filterwarnings("default", category=UserWarning)
 
-for d in [OUTPUT_DIR, MODEL_DIR]:
-    d.mkdir(exist_ok=True)
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+DATA_DIR = Path("Dataset")
+OUTPUT_DIR = Path("ml_outputs")
+MODEL_DIR = Path("models")
+THRESHOLD = 30
+PAST_YEARS = list(range(2001, 2021))
+FORECAST_YEARS = list(range(2021, 2031))
+RANDOM_STATE = 42
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================================
-# 1. DATA LOADING & PREPROCESSING
-# ============================================================================
+def json_safe(value: Any) -> Any:
+    """Convert NumPy/Pandas values to JSON-safe Python values."""
+    if isinstance(value, dict):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating,)):
+        return float(value) if np.isfinite(value) else None
+    if isinstance(value, (np.bool_,)):
+        return bool(value)
+    if pd.isna(value):
+        return None
+    return value
+
+
+def write_json(path: Path, obj: Any) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(json_safe(obj), f, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# 1. Data loading / joining
+# ---------------------------------------------------------------------------
 class DataLoader:
-    """Load and preprocess all datasets."""
+    FILES = {
+        "country_tcl": "Country tree cover loss.xlsx",
+        "country_carbon": "Country carbon data.xlsx",
+        "state_tcl": "Subnational 1 tree cover loss.xlsx",
+        "state_carbon": "Subnational 1 carbon data.xlsx",
+        "district_tcl": "Subnational 2 tree cover loss.xlsx",
+        "district_carbon": "Subnational 2 carbon data.xlsx",
+    }
 
-    def __init__(self):
-        self.country_tcl = None
-        self.country_carbon = None
-        self.state_tcl = None
-        self.state_carbon = None
-        self.district_tcl = None
-        self.district_carbon = None
+    def __init__(self, data_dir: Path = DATA_DIR):
+        self.data_dir = Path(data_dir)
+        self.data: dict[str, pd.DataFrame] = {}
 
-    def load_all(self):
-        """Load all 6 Excel datasets."""
-        print("📂 Loading datasets...")
+    def load_all(self) -> None:
+        missing = [name for name in self.FILES.values()
+                   if not (self.data_dir / name).exists()]
+        if missing:
+            raise FileNotFoundError(
+                f"Missing workbook(s) in {self.data_dir.resolve()}: {missing}"
+            )
+        for key, filename in self.FILES.items():
+            self.data[key] = pd.read_excel(self.data_dir / filename)
+            print(f"Loaded {filename}: {self.data[key].shape}")
 
-        self.country_tcl = pd.read_excel(DATA_DIR / 'Country tree cover loss.xlsx')
-        self.country_carbon = pd.read_excel(DATA_DIR / 'Country carbon data.xlsx')
-        self.state_tcl = pd.read_excel(DATA_DIR / 'Subnational 1 tree cover loss.xlsx')
-        self.state_carbon = pd.read_excel(DATA_DIR / 'Subnational 1 carbon data.xlsx')
-        self.district_tcl = pd.read_excel(DATA_DIR / 'Subnational 2 tree cover loss.xlsx')
-        self.district_carbon = pd.read_excel(DATA_DIR / 'Subnational 2 carbon data.xlsx')
+    @staticmethod
+    def _threshold_filter(df: pd.DataFrame, column: str) -> pd.DataFrame:
+        if column not in df.columns:
+            raise KeyError(f"Required threshold column {column!r} not found.")
+        values = pd.to_numeric(df[column], errors="coerce")
+        return df.loc[values.eq(THRESHOLD)].copy()
 
-        print(f"  ✅ Country TCL: {self.country_tcl.shape}")
-        print(f"  ✅ Country Carbon: {self.country_carbon.shape}")
-        print(f"  ✅ State TCL: {self.state_tcl.shape}")
-        print(f"  ✅ State Carbon: {self.state_carbon.shape}")
-        print(f"  ✅ District TCL: {self.district_tcl.shape}")
-        print(f"  ✅ District Carbon: {self.district_carbon.shape}")
-
-    def get_state_data(self):
-        """Get merged state-level data at threshold=30.
-
-        The carbon dataset has 'umd_tree_cover_density__threshold'
-        while TCL has 'threshold'. We rename + filter both to threshold=30,
-        then drop the extra threshold column before merging to prevent
-        duplicate 'threshold' / 'threshold_carbon' confusion that was
-        causing emission columns to be inaccessible.
-        """
-        # Filter at standard threshold
-        tcl = self.state_tcl[self.state_tcl['threshold'] == THRESHOLD].copy()
-        carbon = self.state_carbon[
-            self.state_carbon['umd_tree_cover_density__threshold'] == THRESHOLD
-        ].copy()
-
-        # Drop the threshold column from carbon to avoid duplicate on merge
-        carbon = carbon.drop(columns=['umd_tree_cover_density__threshold'])
-
-        # Merge on country + subnational1 (no threshold column conflict now)
-        merged = pd.merge(
-            tcl, carbon,
-            on=['country', 'subnational1'],
-            how='left',
-            suffixes=('', '_carbon')
-        )
-
-        # Clean up
-        merged = merged.dropna(subset=['subnational1'])
-
-        # Validate emission data is present
-        emission_sample_col = 'gfw_gross_emissions_co2e_all_gases_2001__Mg'
-        if emission_sample_col in merged.columns:
-            total_em = merged[emission_sample_col].sum()
-            print(f"  ✅ Emission data validation: 2001 emissions = {total_em:,.0f} Mg")
-        else:
-            print(f"  ⚠️  WARNING: Emission columns not found after merge!")
-
-        print(f"  📊 State-level merged data: {merged.shape}")
+    def get_state_data(self) -> pd.DataFrame:
+        tcl = self._threshold_filter(self.data["state_tcl"], "threshold")
+        carbon = self._threshold_filter(
+            self.data["state_carbon"], "umd_tree_cover_density__threshold"
+        ).drop(columns=["umd_tree_cover_density__threshold"], errors="ignore")
+        keys = ["country", "subnational1"]
+        for key in keys:
+            if key not in tcl or key not in carbon:
+                raise KeyError(f"Expected merge key {key!r} in state workbooks.")
+        merged = tcl.merge(carbon, on=keys, how="left", suffixes=("", "_carbon"))
+        merged = merged.dropna(subset=["subnational1"])
+        # Prevent silent row multiplication caused by duplicate join keys.
+        if merged.duplicated(keys).any():
+            duplicates = merged.loc[merged.duplicated(keys, keep=False), keys]
+            raise ValueError(
+                "Duplicate state keys after merging carbon data. Check source "
+                f"workbooks. Examples: {duplicates.head().to_dict('records')}"
+            )
+        print(f"Merged state data: {merged.shape}")
         return merged
 
-    def get_country_data(self):
-        """Get country-level data at threshold=30."""
-        tcl = self.country_tcl[self.country_tcl['threshold'] == THRESHOLD].copy()
-        carbon = self.country_carbon[
-            self.country_carbon['umd_tree_cover_density__threshold'] == THRESHOLD
-        ].copy()
+    def get_country_data(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        tcl = self._threshold_filter(self.data["country_tcl"], "threshold")
+        carbon = self._threshold_filter(
+            self.data["country_carbon"], "umd_tree_cover_density__threshold"
+        )
         return tcl, carbon
 
-    def get_district_data(self):
-        """Get district-level data at threshold=30."""
-        tcl = self.district_tcl[self.district_tcl['threshold'] == THRESHOLD].copy()
-        carbon = self.district_carbon[
-            self.district_carbon['umd_tree_cover_density__threshold'] == THRESHOLD
-        ].copy()
-
-        # Drop threshold column from carbon to avoid conflicts
-        carbon = carbon.drop(columns=['umd_tree_cover_density__threshold'])
-
-        merged = pd.merge(
-            tcl, carbon,
-            on=['country', 'subnational1', 'subnational2'],
-            how='left',
-            suffixes=('', '_carbon')
-        )
-        merged = merged.dropna(subset=['subnational2'])
-        return merged
+    def get_district_data(self) -> pd.DataFrame:
+        tcl = self._threshold_filter(self.data["district_tcl"], "threshold")
+        carbon = self._threshold_filter(
+            self.data["district_carbon"], "umd_tree_cover_density__threshold"
+        ).drop(columns=["umd_tree_cover_density__threshold"], errors="ignore")
+        keys = ["country", "subnational1", "subnational2"]
+        merged = tcl.merge(carbon, on=keys, how="left", suffixes=("", "_carbon"))
+        return merged.dropna(subset=["subnational2"])
 
 
-# ============================================================================
-# 2. FEATURE ENGINEERING
-# ============================================================================
+# ---------------------------------------------------------------------------
+# 2. Feature engineering
+# ---------------------------------------------------------------------------
 class FeatureEngineer:
-    """Engineer features for ML models.
-
-    NOTE: many of the columns produced here (avg_annual_loss_ha,
-    max/std/min_annual_loss_ha, loss_trend_slope, deforestation_acceleration,
-    loss_cv, vulnerability_score, remaining_forest_ratio, carbon_intensity,
-    log_total_loss) are derived from — or algebraic functions of —
-    `total_loss_ha`, which is the regression target used later. They are
-    kept here because they're genuinely useful for the fuzzy-priority
-    ranking and reforestation plan (i.e. ranking states by their *already
-    known* historical loss), but `EnsembleModels.train_all()` must NOT be
-    given these as predictors of total_loss_ha, or the model will just be
-    reconstructing the target from disguised copies of itself. See
-    `feature_cols` in `ReforestationPipeline.run()`.
-    """
-
     def __init__(self):
-        self.loss_columns = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
-        self.emission_columns = [
-            f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS
+        self.loss_cols = [f"tc_loss_ha_{y}" for y in PAST_YEARS]
+        self.emission_cols = [
+            f"gfw_gross_emissions_co2e_all_gases_{y}__Mg" for y in PAST_YEARS
         ]
 
-    def engineer_state_features(self, df):
-        """Create features from state-level data."""
-        print("🔧 Engineering features...")
-
+    def engineer_state_features(self, df: pd.DataFrame) -> pd.DataFrame:
         result = df.copy()
+        missing_loss = [c for c in self.loss_cols if c not in result.columns]
+        if missing_loss:
+            raise KeyError(f"Missing annual loss columns: {missing_loss}")
 
-        # --- Core Forest Metrics ---
-        result['total_loss_ha'] = result[self.loss_columns].sum(axis=1)
-        result['avg_annual_loss_ha'] = result[self.loss_columns].mean(axis=1)
-        result['max_annual_loss_ha'] = result[self.loss_columns].max(axis=1)
-        result['min_annual_loss_ha'] = result[self.loss_columns].min(axis=1)
-        result['std_annual_loss_ha'] = result[self.loss_columns].std(axis=1)
+        for c in self.loss_cols:
+            result[c] = pd.to_numeric(result[c], errors="coerce")
+        # Missing yearly observations remain missing during feature calculations;
+        # sum/mean skip missing values but a row with all missing years is flagged.
+        result["observed_loss_years"] = result[self.loss_cols].notna().sum(axis=1)
+        result["total_loss_ha"] = result[self.loss_cols].sum(axis=1, min_count=1)
+        result["avg_annual_loss_ha"] = result[self.loss_cols].mean(axis=1)
+        result["max_annual_loss_ha"] = result[self.loss_cols].max(axis=1)
+        result["min_annual_loss_ha"] = result[self.loss_cols].min(axis=1)
+        result["std_annual_loss_ha"] = result[self.loss_cols].std(axis=1)
 
-        # Forest cover ratios (clamped to [0, 1])
-        result['forest_cover_ratio_2000'] = np.clip(
-            result['extent_2000_ha'] / result['area_ha'].replace(0, np.nan),
-            0, 1
-        )
-        result['forest_cover_ratio_2010'] = np.clip(
-            result['extent_2010_ha'] / result['area_ha'].replace(0, np.nan),
-            0, 1
-        )
-        result['forest_cover_change_2000_2010'] = (
-            (result['extent_2010_ha'] - result['extent_2000_ha'])
-            / result['extent_2000_ha'].replace(0, np.nan)
-        )
+        for c in ["area_ha", "extent_2000_ha", "extent_2010_ha",
+                  "gain_2000-2012_ha",
+                  "avg_whrc_aboveground_biomass_2000_Mg_ha-1",
+                  "gfw_net_flux_co2e__Mg_yr-1"]:
+            if c in result:
+                result[c] = pd.to_numeric(result[c], errors="coerce")
 
-        # Net forest status
-        result['remaining_forest_ha'] = (
-            result['extent_2000_ha'] - result['total_loss_ha']
-            + result['gain_2000-2012_ha'].fillna(0)
-        )
-        # Clamp to >= 0 (forest area can't be negative)
-        result['remaining_forest_ha'] = result['remaining_forest_ha'].clip(lower=0)
-        result['remaining_forest_ratio'] = np.clip(
-            result['remaining_forest_ha'] / result['area_ha'].replace(0, np.nan),
-            0, 1
+        area = result.get("area_ha", pd.Series(np.nan, index=result.index)).replace(0, np.nan)
+        extent_2000 = result.get("extent_2000_ha", pd.Series(np.nan, index=result.index))
+        extent_2010 = result.get("extent_2010_ha", pd.Series(np.nan, index=result.index))
+        result["forest_cover_ratio_2000"] = (extent_2000 / area).clip(0, 1)
+        result["forest_cover_ratio_2010"] = (extent_2010 / area).clip(0, 1)
+        result["forest_cover_change_2000_2010"] = (
+            (extent_2010 - extent_2000) / extent_2000.replace(0, np.nan)
         )
 
-        # --- Deforestation Trend Analysis ---
-        # First half (2001-2010) vs Second half (2011-2020)
-        first_half_cols = [f'tc_loss_ha_{y}' for y in range(2001, 2011)]
-        second_half_cols = [f'tc_loss_ha_{y}' for y in range(2011, 2021)]
-        result['avg_loss_first_half'] = result[first_half_cols].mean(axis=1)
-        result['avg_loss_second_half'] = result[second_half_cols].mean(axis=1)
-        result['deforestation_acceleration'] = (
-            (result['avg_loss_second_half'] - result['avg_loss_first_half'])
-            / result['avg_loss_first_half'].replace(0, np.nan)
-        )
+        gain = result.get("gain_2000-2012_ha", pd.Series(0.0, index=result.index)).fillna(0)
+        result["remaining_forest_ha"] = (extent_2000 - result["total_loss_ha"] + gain).clip(lower=0)
+        result["remaining_forest_ratio"] = (result["remaining_forest_ha"] / area).clip(0, 1)
 
-        # Linear trend (slope of annual loss)
-        years_array = np.arange(len(PAST_YEARS))
+        first_cols = [f"tc_loss_ha_{y}" for y in range(2001, 2011)]
+        second_cols = [f"tc_loss_ha_{y}" for y in range(2011, 2021)]
+        result["avg_loss_first_half"] = result[first_cols].mean(axis=1)
+        result["avg_loss_second_half"] = result[second_cols].mean(axis=1)
+        result["deforestation_acceleration"] = (
+            (result["avg_loss_second_half"] - result["avg_loss_first_half"])
+            / result["avg_loss_first_half"].replace(0, np.nan)
+        )
+        x_year = np.arange(len(PAST_YEARS), dtype=float)
         slopes = []
-        for _, row in result.iterrows():
-            losses = row[self.loss_columns].values.astype(float)
-            if np.all(np.isnan(losses)):
-                slopes.append(0)
-            else:
-                losses = np.nan_to_num(losses, 0)
-                slope = np.polyfit(years_array, losses, 1)[0]
-                slopes.append(slope)
-        result['loss_trend_slope'] = slopes
-
-        # Coefficient of variation
-        result['loss_cv'] = (
-            result['std_annual_loss_ha']
-            / result['avg_annual_loss_ha'].replace(0, np.nan)
+        for _, row in result[self.loss_cols].iterrows():
+            vals = row.to_numpy(dtype=float)
+            mask = np.isfinite(vals)
+            slopes.append(float(np.polyfit(x_year[mask], vals[mask], 1)[0])
+                          if mask.sum() >= 2 else 0.0)
+        result["loss_trend_slope"] = slopes
+        result["loss_cv"] = (
+            result["std_annual_loss_ha"] / result["avg_annual_loss_ha"].replace(0, np.nan)
         )
 
-        # --- Carbon Impact Features ---
-        emission_cols_present = [c for c in self.emission_columns if c in result.columns]
-        if emission_cols_present:
-            result['total_emissions_Mg'] = result[emission_cols_present].sum(axis=1)
-            result['avg_annual_emissions_Mg'] = result[emission_cols_present].mean(axis=1)
-            result['carbon_intensity'] = (
-                result['total_emissions_Mg']
-                / result['total_loss_ha'].replace(0, np.nan)
-            )
-            # Clamp carbon_intensity to positive (ratio of two positive quantities)
-            result['carbon_intensity'] = result['carbon_intensity'].clip(lower=0)
-            print(f"  ✅ Emission columns found: {len(emission_cols_present)}")
-            print(f"  ✅ Total emissions across all states: {result['total_emissions_Mg'].sum():,.0f} Mg")
+        emissions_present = [c for c in self.emission_cols if c in result.columns]
+        if emissions_present:
+            for c in emissions_present:
+                result[c] = pd.to_numeric(result[c], errors="coerce")
+            result["total_emissions_Mg"] = result[emissions_present].sum(axis=1, min_count=1)
+            result["avg_annual_emissions_Mg"] = result[emissions_present].mean(axis=1)
         else:
-            result['total_emissions_Mg'] = 0
-            result['avg_annual_emissions_Mg'] = 0
-            result['carbon_intensity'] = 0
-            print("  ⚠️  No emission columns found!")
+            result["total_emissions_Mg"] = np.nan
+            result["avg_annual_emissions_Mg"] = np.nan
 
-        # Carbon flux features
-        if 'gfw_net_flux_co2e__Mg_yr-1' in result.columns:
-            result['net_carbon_flux'] = result['gfw_net_flux_co2e__Mg_yr-1'].fillna(0)
-            result['is_carbon_source'] = (result['net_carbon_flux'] > 0).astype(int)
-        else:
-            result['net_carbon_flux'] = 0
-            result['is_carbon_source'] = 0
-
-        # Biomass density
-        if 'avg_whrc_aboveground_biomass_2000_Mg_ha-1' in result.columns:
-            result['biomass_density'] = result[
-                'avg_whrc_aboveground_biomass_2000_Mg_ha-1'
-            ].fillna(0)
-        else:
-            result['biomass_density'] = 0
-
-        # --- Log-transformed features (for skewed distributions) ---
-        result['log_total_loss'] = np.log1p(result['total_loss_ha'].clip(lower=0))
-        result['log_total_emissions'] = np.log1p(result['total_emissions_Mg'].clip(lower=0))
-        result['log_area'] = np.log1p(result['area_ha'].clip(lower=0))
-
-        # --- Vulnerability & Priority Scoring ---
-        # Normalize key metrics to 0-1 scale for composite scoring
-        for col in ['total_loss_ha', 'deforestation_acceleration', 'carbon_intensity',
-                     'loss_trend_slope', 'remaining_forest_ratio']:
-            if col in result.columns:
-                col_data = result[col].fillna(0)
-                min_val, max_val = col_data.min(), col_data.max()
-                if max_val > min_val:
-                    result[f'{col}_norm'] = (col_data - min_val) / (max_val - min_val)
-                else:
-                    result[f'{col}_norm'] = 0
-
-        # Composite vulnerability score
-        # NOTE: this deliberately uses total_loss_ha_norm — it's meant to rank
-        # states by their *known* historical loss for prioritization purposes.
-        # It must NOT be used as an ML predictor of total_loss_ha (see
-        # feature_cols in ReforestationPipeline.run()).
-        result['vulnerability_score'] = (
-            result.get('total_loss_ha_norm', 0) * 0.25 +
-            result.get('deforestation_acceleration_norm', 0) * 0.20 +
-            result.get('carbon_intensity_norm', 0) * 0.20 +
-            result.get('loss_trend_slope_norm', 0) * 0.20 +
-            (1 - result.get('remaining_forest_ratio_norm', 0)) * 0.15
+        # These carbon metrics are used for descriptive ranking only. Do not use
+        # carbon_intensity as a regression predictor because it divides by loss.
+        result["carbon_intensity"] = (
+            result["total_emissions_Mg"] / result["total_loss_ha"].replace(0, np.nan)
         )
+        result["net_carbon_flux"] = result.get(
+            "gfw_net_flux_co2e__Mg_yr-1", pd.Series(np.nan, index=result.index)
+        )
+        result["is_carbon_source"] = (result["net_carbon_flux"] > 0).astype(int)
+        result["biomass_density"] = result.get(
+            "avg_whrc_aboveground_biomass_2000_Mg_ha-1",
+            pd.Series(np.nan, index=result.index)
+        )
+        result["log_area"] = np.log1p(result.get("area_ha", pd.Series(np.nan, index=result.index)).clip(lower=0))
+        result["log_total_emissions"] = np.log1p(result["total_emissions_Mg"].clip(lower=0))
 
-        # Fill remaining NaN
-        result = result.fillna(0)
-        result = result.replace([np.inf, -np.inf], 0)
+        # Composite score is descriptive; it is not a ground-truth ML label.
+        def minmax(s: pd.Series) -> pd.Series:
+            s = s.astype(float)
+            lo, hi = s.min(skipna=True), s.max(skipna=True)
+            if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+                return pd.Series(0.0, index=s.index)
+            return (s - lo) / (hi - lo)
 
-        print(f"  ✅ Engineered {len(result.columns)} features for {len(result)} states")
+        loss_norm = minmax(result["total_loss_ha"].fillna(0))
+        accel_norm = minmax(result["deforestation_acceleration"].replace([np.inf, -np.inf], np.nan).fillna(0))
+        carbon_norm = minmax(result["carbon_intensity"].replace([np.inf, -np.inf], np.nan).fillna(0))
+        slope_norm = minmax(result["loss_trend_slope"].fillna(0))
+        forest_norm = minmax(result["remaining_forest_ratio"].fillna(0))
+        result["vulnerability_score"] = (
+            0.30 * loss_norm + 0.20 * accel_norm + 0.15 * carbon_norm
+            + 0.20 * slope_norm + 0.15 * (1 - forest_norm)
+        )
         return result
 
 
-# ============================================================================
-# 3. FUZZY LOGIC LAYER
-# ============================================================================
+# ---------------------------------------------------------------------------
+# 3. Fuzzy priority score (kept simple and transparent)
+# ---------------------------------------------------------------------------
 class FuzzyLogicEngine:
-    """Fuzzy logic layer for reforestation priority classification."""
-
     @staticmethod
-    def triangular_mf(x, a, b, c):
-        """Triangular membership function."""
-        return np.maximum(0, np.minimum((x - a) / max(b - a, 1e-10),
-                                         (c - x) / max(c - b, 1e-10)))
-
-    @staticmethod
-    def trapezoidal_mf(x, a, b, c, d):
-        """Trapezoidal membership function."""
-        return np.maximum(0, np.minimum(
-            np.minimum((x - a) / max(b - a, 1e-10), 1),
-            (d - x) / max(d - c, 1e-10)
-        ))
-
-    def fuzzify(self, value, universe='loss_rate'):
-        """Fuzzify a normalized value (0-1) into fuzzy sets."""
-        x = np.clip(value, 0, 1)
-
-        if universe == 'loss_rate':
-            low = self.trapezoidal_mf(x, 0, 0, 0.2, 0.4)
-            medium = self.triangular_mf(x, 0.2, 0.5, 0.8)
-            high = self.trapezoidal_mf(x, 0.6, 0.8, 1, 1)
-        elif universe == 'forest_density':
-            low = self.trapezoidal_mf(x, 0, 0, 0.15, 0.35)
-            medium = self.triangular_mf(x, 0.2, 0.5, 0.8)
-            high = self.trapezoidal_mf(x, 0.65, 0.85, 1, 1)
-        elif universe == 'carbon_impact':
-            low = self.trapezoidal_mf(x, 0, 0, 0.25, 0.45)
-            medium = self.triangular_mf(x, 0.3, 0.5, 0.7)
-            high = self.trapezoidal_mf(x, 0.55, 0.75, 1, 1)
+    def compute_priority(row: pd.Series) -> dict[str, Any]:
+        loss = float(row.get("total_loss_ha", 0) or 0)
+        loss_scale = max(float(row.get("_max_loss_for_priority", loss) or loss), 1.0)
+        loss_score = float(np.clip(loss / loss_scale, 0, 1))
+        remaining = row.get("remaining_forest_ratio", np.nan)
+        remaining = float(np.clip(remaining, 0, 1)) if pd.notna(remaining) else 0.5
+        emissions = row.get("total_emissions_Mg", np.nan)
+        emissions = float(emissions) if pd.notna(emissions) else 0.0
+        # Normalize emissions using a value injected by the pipeline.
+        emission_scale = max(float(row.get("_max_emissions_for_priority", emissions) or emissions), 1.0)
+        carbon_score = float(np.clip(emissions / emission_scale, 0, 1))
+        score = 100 * (0.45 * loss_score + 0.30 * (1 - remaining) + 0.25 * carbon_score)
+        if score >= 75:
+            label = "Critical"
+        elif score >= 55:
+            label = "High"
+        elif score >= 35:
+            label = "Moderate"
         else:
-            low = medium = high = 0
-
-        return {'low': float(low), 'medium': float(medium), 'high': float(high)}
-
-    def apply_rules(self, loss_rate_fuzzy, forest_density_fuzzy, carbon_impact_fuzzy):
-        """Apply fuzzy rules to determine reforestation priority."""
-        critical = 0
-        high = 0
-        moderate = 0
-        low = 0
-
-        # Rule 1: High loss + Low forest + High carbon → CRITICAL
-        critical = max(critical, min(
-            loss_rate_fuzzy['high'],
-            forest_density_fuzzy['low'],
-            carbon_impact_fuzzy['high']
-        ))
-
-        # Rule 2: High loss + Medium forest + High carbon → CRITICAL
-        critical = max(critical, min(
-            loss_rate_fuzzy['high'],
-            forest_density_fuzzy['medium'],
-            carbon_impact_fuzzy['high']
-        ))
-
-        # Rule 3: High loss + Low forest + Medium carbon → HIGH
-        high = max(high, min(
-            loss_rate_fuzzy['high'],
-            forest_density_fuzzy['low'],
-            carbon_impact_fuzzy['medium']
-        ))
-
-        # Rule 4: Medium loss + Low forest + High carbon → HIGH
-        high = max(high, min(
-            loss_rate_fuzzy['medium'],
-            forest_density_fuzzy['low'],
-            carbon_impact_fuzzy['high']
-        ))
-
-        # Rule 5: High loss + High forest + Medium carbon → HIGH
-        high = max(high, min(
-            loss_rate_fuzzy['high'],
-            forest_density_fuzzy['high'],
-            carbon_impact_fuzzy['medium']
-        ))
-
-        # Rule 6: Medium loss + Medium forest + Medium carbon → MODERATE
-        moderate = max(moderate, min(
-            loss_rate_fuzzy['medium'],
-            forest_density_fuzzy['medium'],
-            carbon_impact_fuzzy['medium']
-        ))
-
-        # Rule 7: Medium loss + High forest + Low carbon → MODERATE
-        moderate = max(moderate, min(
-            loss_rate_fuzzy['medium'],
-            forest_density_fuzzy['high'],
-            carbon_impact_fuzzy['low']
-        ))
-
-        # Rule 8: Low loss + Medium forest + Medium carbon → LOW
-        low = max(low, min(
-            loss_rate_fuzzy['low'],
-            forest_density_fuzzy['medium'],
-            carbon_impact_fuzzy['medium']
-        ))
-
-        # Rule 9: Low loss + High forest + Low carbon → LOW
-        low = max(low, min(
-            loss_rate_fuzzy['low'],
-            forest_density_fuzzy['high'],
-            carbon_impact_fuzzy['low']
-        ))
-
-        # Rule 10: Low loss + Low forest → MODERATE (still needs attention)
-        moderate = max(moderate, min(
-            loss_rate_fuzzy['low'],
-            forest_density_fuzzy['low']
-        ))
-
-        return {
-            'critical': float(critical),
-            'high': float(high),
-            'moderate': float(moderate),
-            'low': float(low)
-        }
-
-    def defuzzify(self, priority_fuzzy):
-        """Centroid defuzzification to get crisp priority score (0-100)."""
-        numerator = (
-            priority_fuzzy['critical'] * 90 +
-            priority_fuzzy['high'] * 70 +
-            priority_fuzzy['moderate'] * 45 +
-            priority_fuzzy['low'] * 20
-        )
-        denominator = sum(priority_fuzzy.values())
-
-        if denominator == 0:
-            return 50.0  # Default moderate
-
-        return float(numerator / denominator)
-
-    def compute_priority(self, row):
-        """Compute fuzzy reforestation priority for a single state/region."""
-        loss_rate_val = np.clip(row.get('total_loss_ha_norm', 0.5), 0, 1)
-        forest_density_val = np.clip(row.get('remaining_forest_ratio', 0.5), 0, 1)
-        carbon_val = np.clip(row.get('carbon_intensity_norm', 0.5) if 'carbon_intensity_norm' in row.index else 0.5, 0, 1)
-
-        loss_fuzzy = self.fuzzify(loss_rate_val, 'loss_rate')
-        forest_fuzzy = self.fuzzify(forest_density_val, 'forest_density')
-        carbon_fuzzy = self.fuzzify(carbon_val, 'carbon_impact')
-
-        priority_fuzzy = self.apply_rules(loss_fuzzy, forest_fuzzy, carbon_fuzzy)
-        priority_score = self.defuzzify(priority_fuzzy)
-
-        max_level = max(priority_fuzzy, key=priority_fuzzy.get)
-        label_map = {'critical': 'Critical', 'high': 'High', 'moderate': 'Moderate', 'low': 'Low'}
-
-        return {
-            'fuzzy_priority_score': priority_score,
-            'fuzzy_priority_label': label_map.get(max_level, 'Moderate'),
-            'fuzzy_memberships': priority_fuzzy,
-            'fuzzy_inputs': {
-                'loss_rate': loss_fuzzy,
-                'forest_density': forest_fuzzy,
-                'carbon_impact': carbon_fuzzy
-            }
-        }
+            label = "Low"
+        return {"fuzzy_priority_score": round(score, 3), "fuzzy_priority_label": label}
 
 
-# ============================================================================
-# 4. SMOTE ANALYSIS (Before/After comparison)
-# ============================================================================
-class SMOTEAnalyzer:
-    """Apply SMOTE to balance classification and compare results."""
-
-    def __init__(self):
-        self.results = {}
-
-    def prepare_classification_data(self, df):
-        """Convert regression targets to classification categories."""
-        bins = [0, 0.3, 0.6, 1.0]
-        labels = ['Low', 'Medium', 'High']
-        df = df.copy()
-        df['priority_class'] = pd.cut(
-            df['vulnerability_score'], bins=bins, labels=labels, include_lowest=True
-        )
-
-        le = LabelEncoder()
-        df['priority_encoded'] = le.fit_transform(df['priority_class'].astype(str))
-
-        return df, le
-
-    def run_analysis(self, df, feature_cols):
-        """Run before/after SMOTE comparison with proper train/test split."""
-        print("⚖️  Running SMOTE Analysis...")
-
-        df_class, le = self.prepare_classification_data(df)
-
-        X = df_class[feature_cols].values
-        y = df_class['priority_encoded'].values
-
-        X = np.nan_to_num(X, 0)
-
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        unique, counts = np.unique(y, return_counts=True)
-        before_dist = dict(zip(le.inverse_transform(unique), counts.tolist()))
-        print(f"  📊 Before SMOTE: {before_dist}")
-
-        # cv folds capped at the smallest class size, floored at 2 but never
-        # exceeding the smallest class (guards against StratifiedKFold errors)
-        min_count = int(min(counts))
-        cv_folds_before = max(2, min(5, min_count)) if min_count >= 2 else 2
-        cv_folds_before = min(cv_folds_before, min_count) if min_count >= 2 else 2
-
-        rf_before = RandomForestClassifier(n_estimators=100, random_state=42)
-        scores_before = cross_val_score(rf_before, X_scaled, y,
-                                         cv=cv_folds_before, scoring='accuracy')
-        y_pred_before = cross_val_predict(rf_before, X_scaled, y, cv=cv_folds_before)
-
-        min_samples = min(counts)
-        k_neighbors = min(min_samples - 1, 3) if min_samples > 1 else 1
-
-        if min_samples > 1 and len(unique) > 1:
-            smote = SMOTE(random_state=42, k_neighbors=k_neighbors)
-            X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
-
-            unique_after, counts_after = np.unique(y_resampled, return_counts=True)
-            after_dist = dict(zip(le.inverse_transform(unique_after), counts_after.tolist()))
-            print(f"  📊 After SMOTE: {after_dist}")
-
-            X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
-                X_resampled, y_resampled, test_size=0.25, random_state=42, stratify=y_resampled
-            )
-            rf_after = RandomForestClassifier(n_estimators=100, random_state=42)
-            rf_after.fit(X_train_s, y_train_s)
-            y_pred_after = rf_after.predict(X_test_s)
-
-            cv_folds_after = max(2, min(5, min(counts_after)))
-            scores_after = cross_val_score(rf_after, X_resampled, y_resampled,
-                                            cv=cv_folds_after, scoring='accuracy')
-        else:
-            after_dist = before_dist
-            scores_after = scores_before
-            y_pred_after = y_pred_before
-            y_test_s = y
-            y_resampled = y
-
-        self.results = {
-            'before_smote': {
-                'class_distribution': before_dist,
-                'accuracy': float(np.mean(scores_before)),
-                'cv_scores': scores_before.tolist(),
-                'f1_macro': float(f1_score(y, y_pred_before, average='macro', zero_division=0)),
-                'precision_macro': float(precision_score(y, y_pred_before, average='macro', zero_division=0)),
-                'recall_macro': float(recall_score(y, y_pred_before, average='macro', zero_division=0)),
-            },
-            'after_smote': {
-                'class_distribution': after_dist,
-                'accuracy': float(np.mean(scores_after)),
-                'cv_scores': scores_after.tolist(),
-                'f1_macro': float(f1_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
-                'precision_macro': float(precision_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
-                'recall_macro': float(recall_score(y_test_s, y_pred_after, average='macro', zero_division=0)),
-            }
-        }
-
-        print(f"  ✅ Before SMOTE Accuracy: {self.results['before_smote']['accuracy']:.4f}")
-        print(f"  ✅ After SMOTE Accuracy: {self.results['after_smote']['accuracy']:.4f}")
-
-        return self.results
+# ---------------------------------------------------------------------------
+# 4. Regression models and leakage-aware evaluation
+# ---------------------------------------------------------------------------
+def make_models() -> dict[str, Any]:
+    # These are common, explainable baseline choices; less commonly used models,
+    # stacking, SVR, CatBoost and XGBoost are intentionally removed.
+    linear = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler()),
+        ("model", Ridge(alpha=10.0)),
+    ])
+    rf = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("model", RandomForestRegressor(
+            n_estimators=500, max_depth=5, min_samples_leaf=2,
+            max_features=0.8, random_state=RANDOM_STATE, n_jobs=-1
+        )),
+    ])
+    gb = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("model", GradientBoostingRegressor(
+            n_estimators=150, learning_rate=0.04, max_depth=2,
+            min_samples_leaf=3, loss="huber", random_state=RANDOM_STATE
+        )),
+    ])
+    # A log-target wrapper can help with a nonnegative, right-skewed target.
+    return {
+        "Ridge": TransformedTargetRegressor(
+            regressor=linear, func=np.log1p, inverse_func=np.expm1, check_inverse=False
+        ),
+        "Random Forest": TransformedTargetRegressor(
+            regressor=rf, func=np.log1p, inverse_func=np.expm1, check_inverse=False
+        ),
+        "Gradient Boosting": TransformedTargetRegressor(
+            regressor=gb, func=np.log1p, inverse_func=np.expm1, check_inverse=False
+        ),
+    }
 
 
-# ============================================================================
-# 5. ENSEMBLE ML MODELS
-# ============================================================================
+def regression_metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, float]:
+    pred = np.maximum(np.asarray(pred, dtype=float), 0)
+    denom = float(np.abs(y).sum())
+    return {
+        "r2": float(r2_score(y, pred)) if len(y) > 1 else float("nan"),
+        "mae": float(mean_absolute_error(y, pred)),
+        "median_absolute_error": float(median_absolute_error(y, pred)),
+        "rmse": float(np.sqrt(mean_squared_error(y, pred))),
+        "wape_pct": float(100 * np.abs(y - pred).sum() / denom) if denom else 0.0,
+    }
+
+
 class EnsembleModels:
-    """Train and evaluate ensemble ML models."""
-
     def __init__(self):
-        self.models = {}
+        self.models: dict[str, Any] = {}
+        self.metrics: dict[str, Any] = {}
+        self.feature_importance: dict[str, Any] = {}
+        self.best_model_name: str | None = None
+
+    def train_all(self, df: pd.DataFrame, feature_cols: list[str],
+                  target_col: str = "total_loss_ha") -> tuple[dict, dict]:
+        if not feature_cols:
+            raise ValueError("No usable independent predictor columns were found.")
+        data = df[feature_cols + [target_col]].copy()
+        data = data.replace([np.inf, -np.inf], np.nan)
+        data[target_col] = pd.to_numeric(data[target_col], errors="coerce")
+        data = data.dropna(subset=[target_col])
+        data = data.loc[data[target_col] >= 0]
+        X = data[feature_cols].apply(pd.to_numeric, errors="coerce")
+        y = data[target_col].to_numpy(dtype=float)
+        if len(y) < 6:
+            raise ValueError(f"At least 6 valid state rows are required; found {len(y)}.")
+
+        n_splits = min(5, len(y))
+        cv = KFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
         self.metrics = {}
-        self.feature_importance = {}
-        self.scaler = StandardScaler()
+        self.models = {}
+        for name, estimator in make_models().items():
+            # Out-of-fold predictions: each row is predicted by a model that did
+            # not train on that row. This is more informative than train R².
+            oof_pred = cross_val_predict(clone(estimator), X, y, cv=cv, n_jobs=None)
+            metrics = regression_metrics(y, oof_pred)
+            metrics["n_samples"] = int(len(y))
+            metrics["cv"] = f"{n_splits}-fold shuffled cross-validation"
+            metrics["oof_predictions"] = oof_pred.tolist()
+            metrics["actual_values"] = y.tolist()
+            self.metrics[name] = metrics
 
-    def train_all(self, df, feature_cols, target_col='total_loss_ha'):
-        """Train all models and evaluate."""
-        print("🤖 Training Ensemble Models...")
-        print(f"  ℹ️  Using {len(feature_cols)} leakage-free features: {feature_cols}")
+            final_model = clone(estimator)
+            final_model.fit(X, y)
+            self.models[name] = final_model
 
-        X = df[feature_cols].values
-        y = df[target_col].values
+            # Extract feature importances where the final estimator supports it.
+            fitted_reg = getattr(final_model, "regressor_", None)
+            if fitted_reg is not None and hasattr(fitted_reg, "named_steps"):
+                inner = fitted_reg.named_steps.get("model")
+                if hasattr(inner, "feature_importances_"):
+                    self.feature_importance[name] = dict(zip(
+                        feature_cols, map(float, inner.feature_importances_)
+                    ))
+            print(f"{name:18s} OOF R²={metrics['r2']:.3f} | "
+                  f"MAE={metrics['mae']:,.1f} | RMSE={metrics['rmse']:,.1f}")
 
-        X = np.nan_to_num(X, 0)
-        y = np.nan_to_num(y, 0)
-
-        X_scaled = self.scaler.fit_transform(X)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y, test_size=0.25, random_state=42
-        )
-
-        # --- 1. Random Forest ---
-        print("  🌲 Training Random Forest...")
-        rf = RandomForestRegressor(
-            n_estimators=200, max_depth=6, min_samples_split=4,
-            min_samples_leaf=3, random_state=42, n_jobs=-1
-        )
-        rf.fit(X_train, y_train)
-        self.models['Random Forest'] = rf
-        self._evaluate(rf, X_train, y_train, X_test, y_test, 'Random Forest', feature_cols)
-
-        # --- 2. XGBoost ---
-        print("  🚀 Training XGBoost...")
-        xgb_model = xgb.XGBRegressor(
-            n_estimators=150, max_depth=4, learning_rate=0.08,
-            subsample=0.8, colsample_bytree=0.7, random_state=42,
-            verbosity=0, reg_alpha=0.1, reg_lambda=1.5, min_child_weight=3,
-            gamma=0.1
-        )
-        xgb_model.fit(X_train, y_train)
-        self.models['XGBoost'] = xgb_model
-        self._evaluate(xgb_model, X_train, y_train, X_test, y_test, 'XGBoost', feature_cols)
-
-        # --- 3. CatBoost ---
-        print("  🐱 Training CatBoost...")
-        cat = CatBoostRegressor(
-            iterations=150, depth=4, learning_rate=0.08,
-            random_seed=42, verbose=False, l2_leaf_reg=5,
-            min_data_in_leaf=3
-        )
-        cat.fit(X_train, y_train)
-        self.models['CatBoost'] = cat
-        self._evaluate(cat, X_train, y_train, X_test, y_test, 'CatBoost', feature_cols)
-
-        # --- 4. SVR ---
-        print("  📐 Training SVR...")
-        svr = SVR(kernel='rbf', C=50, gamma='scale', epsilon=0.1)
-        svr.fit(X_train, y_train)
-        self.models['SVR'] = svr
-        self._evaluate(svr, X_train, y_train, X_test, y_test, 'SVR', feature_cols)
-
-        # --- 5. Ridge Regression (baseline) ---
-        print("  📏 Training Ridge Regression...")
-        ridge = Ridge(alpha=1.0)
-        ridge.fit(X_train, y_train)
-        self.models['Ridge'] = ridge
-        self._evaluate(ridge, X_train, y_train, X_test, y_test, 'Ridge', feature_cols)
-
-        # --- 6. AdaBoost ---
-        print("  🔥 Training AdaBoost...")
-        ada = AdaBoostRegressor(n_estimators=80, random_state=42, learning_rate=0.05)
-        ada.fit(X_train, y_train)
-        self.models['AdaBoost'] = ada
-        self._evaluate(ada, X_train, y_train, X_test, y_test, 'AdaBoost', feature_cols)
-
-        # --- 7. Extra Trees ---
-        print("  🌳 Training Extra Trees...")
-        et = ExtraTreesRegressor(
-            n_estimators=200, max_depth=6, min_samples_split=4,
-            min_samples_leaf=3, random_state=42, n_jobs=-1
-        )
-        et.fit(X_train, y_train)
-        self.models['Extra Trees'] = et
-        self._evaluate(et, X_train, y_train, X_test, y_test, 'Extra Trees', feature_cols)
-
-        # --- 8. Gradient Boosting ---
-        print("  📈 Training Gradient Boosting...")
-        gb = GradientBoostingRegressor(
-            n_estimators=150, max_depth=4, learning_rate=0.08,
-            min_samples_split=4, min_samples_leaf=3,
-            subsample=0.8, random_state=42
-        )
-        gb.fit(X_train, y_train)
-        self.models['Gradient Boosting'] = gb
-        self._evaluate(gb, X_train, y_train, X_test, y_test, 'Gradient Boosting', feature_cols)
-
-        # --- 9. HistGradientBoosting ---
-        print("  📊 Training HistGradientBoosting...")
-        hgb = HistGradientBoostingRegressor(
-            max_iter=150, max_depth=4, learning_rate=0.08,
-            min_samples_leaf=3, random_state=42
-        )
-        hgb.fit(X_train, y_train)
-        self.models['HistGradientBoosting'] = hgb
-        self._evaluate(hgb, X_train, y_train, X_test, y_test, 'HistGradientBoosting', feature_cols)
-
-        # --- 10. ElasticNet ---
-        print("  🔗 Training ElasticNet...")
-        en = ElasticNet(alpha=0.5, l1_ratio=0.5, random_state=42, max_iter=5000)
-        en.fit(X_train, y_train)
-        self.models['ElasticNet'] = en
-        self._evaluate(en, X_train, y_train, X_test, y_test, 'ElasticNet', feature_cols)
-
-        # --- 11. Stacking Ensemble ---
-        print("  🏗️  Training Stacking Ensemble...")
-        stacking = StackingRegressor(
-            estimators=[
-                ('rf', RandomForestRegressor(n_estimators=100, max_depth=5,
-                                              min_samples_leaf=3, random_state=42)),
-                ('xgb', xgb.XGBRegressor(n_estimators=100, max_depth=4, verbosity=0,
-                                          random_state=42, reg_alpha=0.1, reg_lambda=1.5)),
-                ('cat', CatBoostRegressor(iterations=100, depth=4, verbose=False,
-                                           random_seed=42, l2_leaf_reg=5)),
-            ],
-            final_estimator=Ridge(alpha=1.0),
-            cv=3
-        )
-        stacking.fit(X_train, y_train)
-        self.models['Stacking Ensemble'] = stacking
-        self._evaluate(stacking, X_train, y_train, X_test, y_test, 'Stacking Ensemble', feature_cols)
-
-        # Leave-One-Out Cross-Validation (more reliable for a small sample)
-        print("  🔄 Running Leave-One-Out Cross-Validation...")
-        loo = LeaveOneOut()
-        for name, model in self.models.items():
-            try:
-                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo)
-                loo_r2 = float(r2_score(y, loo_preds))
-                self.metrics[name]['cv_r2_mean'] = loo_r2
-                self.metrics[name]['cv_r2_std'] = 0.0
-
-                abs_errors = np.abs(y - loo_preds)
-                self.metrics[name]['cv_r2_scores'] = [
-                    float(np.percentile(abs_errors, 25)),
-                    float(np.median(abs_errors)),
-                    float(np.percentile(abs_errors, 75)),
-                ]
-            except Exception as e:
-                print(f"    ⚠️  LOO-CV failed for {name}: {e}")
-                self.metrics[name]['cv_r2_mean'] = 0.0
-                self.metrics[name]['cv_r2_std'] = 0.0
-                self.metrics[name]['cv_r2_scores'] = [0.0, 0.0, 0.0]
-
-        print("  ✅ All models trained!")
+        # Select on out-of-fold MAE rather than the luckiest R².
+        self.best_model_name = min(self.metrics, key=lambda n: self.metrics[n]["mae"])
+        self.metrics["_selection"] = {
+            "best_model_by_oof_mae": self.best_model_name,
+            "note": "CV scores are estimates; no score improvement is guaranteed.",
+        }
         return self.models, self.metrics
 
-    def _evaluate(self, model, X_train, y_train, X_test, y_test, name, feature_cols):
-        """Evaluate a model."""
-        y_train_pred = model.predict(X_train)
-        y_test_pred = model.predict(X_test)
 
-        train_r2 = float(r2_score(y_train, y_train_pred))
-        test_r2 = float(r2_score(y_test, y_test_pred))
-
-        self.metrics[name] = {
-            'train_r2': train_r2,
-            'test_r2': test_r2,
-            'train_mae': float(mean_absolute_error(y_train, y_train_pred)),
-            'test_mae': float(mean_absolute_error(y_test, y_test_pred)),
-            'train_rmse': float(np.sqrt(mean_squared_error(y_train, y_train_pred))),
-            'test_rmse': float(np.sqrt(mean_squared_error(y_test, y_test_pred))),
-            'overfit_gap': float(train_r2 - test_r2),
-        }
-
-        total_actual = np.sum(np.abs(y_test))
-        if total_actual > 0:
-            self.metrics[name]['test_wape'] = float(
-                np.sum(np.abs(y_test - y_test_pred)) / total_actual * 100
-            )
-        else:
-            self.metrics[name]['test_wape'] = 0.0
-
-        if hasattr(model, 'feature_importances_'):
-            importances = model.feature_importances_
-            self.feature_importance[name] = dict(
-                zip(feature_cols, [float(x) for x in importances])
-            )
-
-        print(f"    {name}: R²={test_r2:.4f}, "
-              f"MAE={self.metrics[name]['test_mae']:.2f}, "
-              f"RMSE={self.metrics[name]['test_rmse']:.2f}, "
-              f"Overfit={self.metrics[name]['overfit_gap']:.4f}")
-
-
-# ============================================================================
-# 6. TIME-SERIES FORECASTING
-# ============================================================================
+# ---------------------------------------------------------------------------
+# 5. Simple transparent trend scenarios
+# ---------------------------------------------------------------------------
 class TimeSeriesForecaster:
-    """Forecast future deforestation under different scenarios."""
+    def forecast_state(self, state_name: str, annual_losses: list[float],
+                       annual_emissions: list[float] | None = None) -> dict[str, Any]:
+        years = np.asarray(PAST_YEARS, dtype=float)
+        losses = np.asarray(annual_losses, dtype=float)
+        losses[~np.isfinite(losses)] = 0
+        recent = losses[-5:]
+        baseline = max(float(np.mean(recent)), 0.0)
+        # Fit only a linear trend; clamp physical quantities to nonnegative.
+        slope = float(np.polyfit(years[-10:], losses[-10:], 1)[0]) if len(losses) >= 10 else 0.0
+        future = np.asarray(FORECAST_YEARS, dtype=float)
+        trend = np.maximum(baseline + slope * (future - future[0]), 0)
+        bau = 0.5 * trend + 0.5 * baseline
+        # This is an illustrative scenario assumption, not a learned policy effect.
+        reduction_rates = np.minimum(0.05 + 0.02 * np.arange(len(future)), 0.20)
+        reforest = np.maximum(bau * (1 - reduction_rates), 0)
 
-    def __init__(self):
-        self.forecasts = {}
-
-    def forecast_state(self, state_name, annual_losses, annual_emissions=None):
-        """Forecast for a single state under two scenarios.
-
-        All output values are clamped to >= 0 (negative loss/emissions are
-        physically impossible).
-        """
-        years = np.array(PAST_YEARS, dtype=float)
-        losses = np.array(annual_losses, dtype=float)
-        losses = np.nan_to_num(losses, 0)
-
-        coeffs = np.polyfit(years, losses, 2)
-        poly_func = np.poly1d(coeffs)
-
-        linear_coeffs = np.polyfit(years, losses, 1)
-        linear_func = np.poly1d(linear_coeffs)
-
-        recent_years = years[-5:]
-        recent_losses = losses[-5:]
-        recent_coeffs = np.polyfit(recent_years, recent_losses, 1)
-        recent_func = np.poly1d(recent_coeffs)
-
-        avg_recent = float(np.mean(recent_losses))
-
-        forecast_years = np.array(FORECAST_YEARS, dtype=float)
-
-        # --- Scenario A: Business-as-Usual ---
-        bau_poly = poly_func(forecast_years)
-        bau_recent = recent_func(forecast_years)
-        bau_avg = np.full_like(forecast_years, avg_recent)
-        bau_forecast = 0.4 * bau_poly + 0.3 * bau_recent + 0.3 * bau_avg
-        bau_forecast = np.maximum(bau_forecast, 0)
-
-        # --- Scenario B: Reforestation ---
-        reforest_forecast = []
-        current_loss = avg_recent
-        for i, year in enumerate(FORECAST_YEARS):
-            reduction_rate = 0.05 + (0.02 * i)
-            current_loss = current_loss * (1 - reduction_rate)
-            reforest_forecast.append(max(current_loss, avg_recent * 0.1))
-        reforest_forecast = np.array(reforest_forecast)
-        reforest_forecast = np.maximum(reforest_forecast, 0)
-
-        # --- Carbon Projections ---
+        bau_emissions, reforest_emissions = np.zeros(len(future)), np.zeros(len(future))
         if annual_emissions is not None:
-            emissions = np.array(annual_emissions, dtype=float)
-            emissions = np.nan_to_num(emissions, 0)
-            total_loss_sum = np.sum(losses)
-            avg_emission_per_loss = np.sum(emissions) / max(total_loss_sum, 1)
-
-            bau_emissions = np.maximum(bau_forecast * avg_emission_per_loss, 0)
-            reforest_emissions = np.maximum(reforest_forecast * avg_emission_per_loss, 0)
-            reforest_gain = np.cumsum(
-                np.maximum((bau_forecast - reforest_forecast) * avg_emission_per_loss * 0.5, 0)
-            )
-        else:
-            bau_emissions = bau_forecast * 0
-            reforest_emissions = reforest_forecast * 0
-            reforest_gain = np.zeros_like(forecast_years)
-
-        total_past_loss = float(np.sum(losses))
-        bau_cumulative = total_past_loss + np.cumsum(bau_forecast)
-        reforest_cumulative = total_past_loss + np.cumsum(reforest_forecast)
-
-        projected_loss_avoidance = max(0.0, float(
-            np.sum(bau_forecast) - np.sum(reforest_forecast)
-        ))
-        carbon_savings = max(0.0, float(np.sum(bau_emissions) - np.sum(reforest_emissions)))
+            emissions = np.asarray(annual_emissions, dtype=float)
+            emissions[~np.isfinite(emissions)] = 0
+            ratio = max(float(emissions.sum()) / max(float(losses.sum()), 1.0), 0.0)
+            bau_emissions = bau * ratio
+            reforest_emissions = reforest * ratio
 
         return {
-            'state': state_name,
-            'past': {
-                'years': PAST_YEARS,
-                'annual_loss_ha': losses.tolist(),
-                'cumulative_loss_ha': np.cumsum(losses).tolist(),
+            "state": state_name,
+            "past": {"years": PAST_YEARS, "annual_loss_ha": losses.tolist()},
+            "bau_scenario": {
+                "years": FORECAST_YEARS,
+                "annual_loss_ha": bau.tolist(),
+                "annual_emissions_Mg": bau_emissions.tolist(),
             },
-            'bau_scenario': {
-                'years': FORECAST_YEARS,
-                'annual_loss_ha': bau_forecast.tolist(),
-                'cumulative_loss_ha': bau_cumulative.tolist(),
-                'annual_emissions_Mg': bau_emissions.tolist(),
+            "reforestation_scenario": {
+                "years": FORECAST_YEARS,
+                "annual_loss_ha": reforest.tolist(),
+                "annual_emissions_Mg": reforest_emissions.tolist(),
             },
-            'reforestation_scenario': {
-                'years': FORECAST_YEARS,
-                'annual_loss_ha': reforest_forecast.tolist(),
-                'cumulative_loss_ha': reforest_cumulative.tolist(),
-                'annual_emissions_Mg': reforest_emissions.tolist(),
-                'carbon_saved_Mg': reforest_gain.tolist(),
-            },
-            'projected_loss_avoidance_ha': projected_loss_avoidance,
-            'carbon_savings_Mg': carbon_savings,
-            'trend_slope': float(linear_coeffs[0]),
+            "projected_loss_avoidance_ha": float(max(0, bau.sum() - reforest.sum())),
+            "carbon_savings_Mg": float(max(0, bau_emissions.sum() - reforest_emissions.sum())),
+            "trend_slope_ha_per_year": slope,
+            "scenario_note": "Illustrative assumptions; not a causal impact estimate.",
         }
 
-    def forecast_all_states(self, df):
-        """Generate forecasts for all states."""
-        print("🔮 Generating Time-Series Forecasts...")
-
-        loss_cols = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
-        emission_cols = [f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS]
-
+    def forecast_all_states(self, df: pd.DataFrame) -> dict[str, Any]:
+        loss_cols = [f"tc_loss_ha_{y}" for y in PAST_YEARS]
+        emission_cols = [f"gfw_gross_emissions_co2e_all_gases_{y}__Mg" for y in PAST_YEARS]
         forecasts = {}
         for _, row in df.iterrows():
-            state = row['subnational1']
-            losses = row[loss_cols].values.astype(float)
-            emissions_present = [c for c in emission_cols if c in row.index]
-            if emissions_present:
-                emissions = row[emissions_present].values.astype(float)
-            else:
-                emissions = None
-
-            forecasts[state] = self.forecast_state(state, losses, emissions)
-            print(f"  ✅ {state}: Loss avoidance = "
-                  f"{forecasts[state]['projected_loss_avoidance_ha']:,.0f} ha")
-
-        self.forecasts = forecasts
+            name = str(row["subnational1"])
+            loss = pd.to_numeric(row[loss_cols], errors="coerce").fillna(0).tolist()
+            present = [c for c in emission_cols if c in df.columns]
+            emission = pd.to_numeric(row[present], errors="coerce").fillna(0).tolist() if present else None
+            forecasts[name] = self.forecast_state(name, loss, emission)
         return forecasts
 
-    def forecast_country(self, df):
-        """Aggregate country-level forecast."""
-        loss_cols = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
-        emission_cols = [f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS]
-
-        total_losses = df[loss_cols].sum().values.astype(float)
-        emissions_present = [c for c in emission_cols if c in df.columns]
-        if emissions_present:
-            total_emissions = df[emissions_present].sum().values.astype(float)
-        else:
-            total_emissions = None
-
-        country_forecast = self.forecast_state('India', total_losses, total_emissions)
-        print(f"  🇮🇳 India Total: Loss avoidance = "
-              f"{country_forecast['projected_loss_avoidance_ha']:,.0f} ha")
-
-        return country_forecast
+    def forecast_country(self, df: pd.DataFrame) -> dict[str, Any]:
+        loss_cols = [f"tc_loss_ha_{y}" for y in PAST_YEARS]
+        emission_cols = [f"gfw_gross_emissions_co2e_all_gases_{y}__Mg" for y in PAST_YEARS]
+        losses = df[loss_cols].apply(pd.to_numeric, errors="coerce").sum(axis=0).fillna(0).tolist()
+        present = [c for c in emission_cols if c in df.columns]
+        emissions = df[present].apply(pd.to_numeric, errors="coerce").sum(axis=0).fillna(0).tolist() if present else None
+        return self.forecast_state("India", losses, emissions)
 
 
-# ============================================================================
-# 7. MAIN PIPELINE
-# ============================================================================
+# ---------------------------------------------------------------------------
+# 6. Orchestration / outputs
+# ---------------------------------------------------------------------------
 class ReforestationPipeline:
-    """Main pipeline orchestrating all components."""
+    # Only pre-loss structural covariates go into the regression. In particular,
+    # total emissions aggregated over 2001-2020 and 2010 forest extent may be
+    # temporally overlapping with the target; choose this feature list only if
+    # those values are genuinely available at prediction time for your use case.
+    BASE_FEATURES = [
+        "area_ha",
+        "extent_2000_ha",
+        "forest_cover_ratio_2000",
+        "biomass_density",
+        "net_carbon_flux",
+        "is_carbon_source",
+        "log_area",
+    ]
 
     def __init__(self):
-        self.data_loader = DataLoader()
-        self.feature_engineer = FeatureEngineer()
-        self.fuzzy_engine = FuzzyLogicEngine()
-        self.smote_analyzer = SMOTEAnalyzer()
-        self.ensemble = EnsembleModels()
+        self.loader = DataLoader()
+        self.engineer = FeatureEngineer()
+        self.fuzzy = FuzzyLogicEngine()
+        self.models = EnsembleModels()
         self.forecaster = TimeSeriesForecaster()
-        self.state_data = None
-        self.results = {}
+        self.state_data: pd.DataFrame | None = None
+        self.results: dict[str, Any] = {}
 
-    def run(self):
-        """Execute the full pipeline."""
-        print("=" * 70)
-        print("🌲 REFORESTATION ML PIPELINE")
-        print("=" * 70)
+    def run(self) -> dict[str, Any]:
+        print("=" * 68)
+        print("REFORESTATION ML PIPELINE")
+        print("=" * 68)
+        self.loader.load_all()
+        raw = self.loader.get_state_data()
+        country_tcl, _ = self.loader.get_country_data()
+        self.state_data = self.engineer.engineer_state_features(raw)
 
-        # Step 1: Load Data
-        self.data_loader.load_all()
-        self.state_data = self.data_loader.get_state_data()
-        country_tcl, country_carbon = self.data_loader.get_country_data()
+        # The priority score is a decision-support ranking, not a validated
+        # supervised target. Normalize within the current set of states.
+        self.state_data["_max_loss_for_priority"] = self.state_data["total_loss_ha"].max()
+        self.state_data["_max_emissions_for_priority"] = self.state_data["total_emissions_Mg"].max(skipna=True)
+        scores = self.state_data.apply(self.fuzzy.compute_priority, axis=1, result_type="expand")
+        self.state_data = pd.concat([self.state_data, scores], axis=1)
+        self.state_data.drop(
+            columns=["_max_loss_for_priority", "_max_emissions_for_priority"],
+            inplace=True, errors="ignore"
+        )
 
-        # Step 2: Feature Engineering
-        self.state_data = self.feature_engineer.engineer_state_features(self.state_data)
-
-        # Step 3: Fuzzy Logic Priority Scoring
-        print("🧠 Computing Fuzzy Logic Priorities...")
-        fuzzy_results = []
-        for idx, row in self.state_data.iterrows():
-            result = self.fuzzy_engine.compute_priority(row)
-            fuzzy_results.append(result)
-            self.state_data.loc[idx, 'fuzzy_priority_score'] = result['fuzzy_priority_score']
-            self.state_data.loc[idx, 'fuzzy_priority_label'] = result['fuzzy_priority_label']
-
-        fuzzy_summary = self.state_data[['subnational1', 'fuzzy_priority_score', 'fuzzy_priority_label']].copy()
-        print(f"  ✅ Fuzzy priorities computed for {len(fuzzy_summary)} states")
-        print(f"  Priority distribution:")
-        print(f"    {fuzzy_summary['fuzzy_priority_label'].value_counts().to_dict()}")
-
-        # Step 4: Define ML features
-        #
-        # LEAKAGE FIX: the ML feature set below is deliberately restricted to
-        # columns that are NOT algebraically derived from `total_loss_ha`
-        # (the regression target). Excluded on purpose (see module docstring
-        # and FeatureEngineer docstring for why):
-        #   avg_annual_loss_ha, max_annual_loss_ha, min_annual_loss_ha,
-        #   std_annual_loss_ha, loss_cv, loss_trend_slope,
-        #   deforestation_acceleration, log_total_loss,
-        #   remaining_forest_ratio, remaining_forest_ha, carbon_intensity,
-        #   vulnerability_score, fuzzy_priority_score
-        # Those remain available on self.state_data for ranking / reporting
-        # (state_rankings, reforestation_plan), just not as regressors here.
+        feature_cols = [c for c in self.BASE_FEATURES if c in self.state_data.columns]
+        # Remove constant/all-null features.
         feature_cols = [
-            'area_ha', 'extent_2000_ha', 'extent_2010_ha',
-            'forest_cover_ratio_2000', 'forest_cover_ratio_2010',
-            'forest_cover_change_2000_2010',
-            'biomass_density',
-            'total_emissions_Mg', 'log_total_emissions',
-            'net_carbon_flux', 'is_carbon_source',
-            'log_area',
+            c for c in feature_cols
+            if self.state_data[c].notna().any()
+            and self.state_data[c].nunique(dropna=True) > 1
         ]
+        print(f"Independent regression features ({len(feature_cols)}): {feature_cols}")
+        _, metrics = self.models.train_all(self.state_data, feature_cols)
 
-        # Verify feature columns exist
-        feature_cols = [c for c in feature_cols if c in self.state_data.columns]
-
-        # Step 5: SMOTE Analysis
-        # (classification target is vulnerability_score, an output, not the
-        # regression target, so it's fine for these features to include
-        # loss-derived signal here — this is a different, legitimate task:
-        # classifying *already computed* priority tiers, not forecasting
-        # unseen loss)
-        smote_feature_cols = feature_cols + [
-            c for c in [
-                'avg_annual_loss_ha', 'loss_trend_slope', 'deforestation_acceleration',
-                'remaining_forest_ratio', 'carbon_intensity',
-            ] if c in self.state_data.columns
-        ]
-        smote_results = self.smote_analyzer.run_analysis(self.state_data, smote_feature_cols)
-
-        # Step 6: Ensemble Models (leakage-free feature set)
-        models, metrics = self.ensemble.train_all(
-            self.state_data, feature_cols, target_col='total_loss_ha'
-        )
-
-        # Step 7: Time-Series Forecasting
-        state_forecasts = self.forecaster.forecast_all_states(self.state_data)
+        forecasts = self.forecaster.forecast_all_states(self.state_data)
         country_forecast = self.forecaster.forecast_country(self.state_data)
+        loss_cols = [f"tc_loss_ha_{y}" for y in PAST_YEARS]
+        emission_cols = [f"gfw_gross_emissions_co2e_all_gases_{y}__Mg" for y in PAST_YEARS]
+        emissions_present = [c for c in emission_cols if c in self.state_data.columns]
 
-        # Step 8: Compile Results
-        self._compile_results(
-            country_tcl, country_carbon,
-            smote_results, metrics, state_forecasts, country_forecast, fuzzy_results
-        )
-
-        # Step 9: Save Results
-        self._save_results()
-
-        print()
-        print("=" * 70)
-        print("✅ PIPELINE COMPLETE!")
-        print("=" * 70)
-        print(f"  📁 Results saved to: {OUTPUT_DIR}/")
-        print(f"  📁 Models saved to: {MODEL_DIR}/")
-
-        return self.results
-
-    def _compile_results(self, country_tcl, country_carbon,
-                         smote_results, metrics, state_forecasts,
-                         country_forecast, fuzzy_results):
-        """Compile all results into a structured dict."""
-
-        loss_cols = [f'tc_loss_ha_{y}' for y in PAST_YEARS]
-        emission_cols = [f'gfw_gross_emissions_co2e_all_gases_{y}__Mg' for y in PAST_YEARS]
-        emission_cols = [c for c in emission_cols if c in self.state_data.columns]
-
-        total_area = float(self.state_data['area_ha'].sum())
-        total_forest_2000 = float(self.state_data['extent_2000_ha'].sum())
-        total_loss = float(self.state_data['total_loss_ha'].sum())
-        total_gain = float(self.state_data['gain_2000-2012_ha'].sum())
-
-        if emission_cols:
-            total_emissions = float(self.state_data[emission_cols].sum().sum())
-        elif 'total_emissions_Mg' in self.state_data.columns:
-            total_emissions = float(self.state_data['total_emissions_Mg'].sum())
-        else:
-            total_emissions = 0
-
-        print(f"  📊 Total emissions computed: {total_emissions:,.0f} Mg")
-
-        state_rankings = []
+        rankings = []
         for _, row in self.state_data.iterrows():
-            state = row['subnational1']
-            state_losses = row[loss_cols].values.astype(float).tolist()
-
-            state_emissions = []
-            for ec in emission_cols:
-                state_emissions.append(float(row.get(ec, 0)))
-
-            state_rankings.append({
-                'name': state,
-                'area_ha': float(row['area_ha']),
-                'extent_2000_ha': float(row['extent_2000_ha']),
-                'extent_2010_ha': float(row['extent_2010_ha']),
-                'total_loss_ha': float(row['total_loss_ha']),
-                'avg_annual_loss_ha': float(row['avg_annual_loss_ha']),
-                'gain_ha': float(row.get('gain_2000-2012_ha', 0)),
-                'forest_cover_ratio': float(row.get('forest_cover_ratio_2000', 0)),
-                'remaining_forest_ratio': float(row.get('remaining_forest_ratio', 0)),
-                'vulnerability_score': float(row.get('vulnerability_score', 0)),
-                'fuzzy_priority_score': float(row.get('fuzzy_priority_score', 50)),
-                'fuzzy_priority_label': str(row.get('fuzzy_priority_label', 'Moderate')),
-                'deforestation_acceleration': float(row.get('deforestation_acceleration', 0)),
-                'carbon_intensity': float(row.get('carbon_intensity', 0)),
-                'total_emissions_Mg': float(row.get('total_emissions_Mg', 0)),
-                'annual_losses': state_losses,
-                'annual_emissions': state_emissions,
-                'trend_slope': float(row.get('loss_trend_slope', 0)),
+            rankings.append({
+                "name": str(row["subnational1"]),
+                "area_ha": float(row["area_ha"]) if pd.notna(row.get("area_ha")) else None,
+                "extent_2000_ha": float(row["extent_2000_ha"]) if pd.notna(row.get("extent_2000_ha")) else None,
+                "total_loss_ha": float(row["total_loss_ha"]) if pd.notna(row.get("total_loss_ha")) else None,
+                "avg_annual_loss_ha": float(row["avg_annual_loss_ha"]) if pd.notna(row.get("avg_annual_loss_ha")) else None,
+                "remaining_forest_ratio": float(row["remaining_forest_ratio"]) if pd.notna(row.get("remaining_forest_ratio")) else None,
+                "vulnerability_score": float(row["vulnerability_score"]),
+                "fuzzy_priority_score": float(row["fuzzy_priority_score"]),
+                "fuzzy_priority_label": str(row["fuzzy_priority_label"]),
+                "deforestation_acceleration": float(row["deforestation_acceleration"]) if pd.notna(row.get("deforestation_acceleration")) else None,
+                "total_emissions_Mg": float(row["total_emissions_Mg"]) if pd.notna(row.get("total_emissions_Mg")) else None,
+                "annual_losses": pd.to_numeric(row[loss_cols], errors="coerce").fillna(0).tolist(),
+                "annual_emissions": pd.to_numeric(row[emissions_present], errors="coerce").fillna(0).tolist() if emissions_present else [],
             })
+        rankings.sort(key=lambda item: item["vulnerability_score"], reverse=True)
 
-        state_rankings.sort(key=lambda x: x['vulnerability_score'], reverse=True)
+        plan = []
+        for state in rankings:
+            f = forecasts.get(state["name"], {})
+            plan.append({
+                "name": state["name"],
+                "priority_label": state["fuzzy_priority_label"],
+                "priority_score": state["fuzzy_priority_score"],
+                "projected_loss_avoidance_ha": f.get("projected_loss_avoidance_ha", 0),
+                "carbon_savings_Mg": f.get("carbon_savings_Mg", 0),
+                "current_loss_rate": state["avg_annual_loss_ha"],
+            })
+        plan.sort(key=lambda x: x["priority_score"], reverse=True)
 
-        national_timeline = {
-            'years': PAST_YEARS,
-            'annual_loss_ha': [float(self.state_data[f'tc_loss_ha_{y}'].sum()) for y in PAST_YEARS],
-            'annual_emissions_Mg': [],
+        annual_national_loss = [
+            float(pd.to_numeric(self.state_data[f"tc_loss_ha_{y}"], errors="coerce").sum())
+            for y in PAST_YEARS
+        ]
+        annual_national_emissions = [
+            float(pd.to_numeric(self.state_data[c], errors="coerce").sum())
+            if c in self.state_data else 0.0
+            for c in emission_cols
+        ]
+        total_area = float(pd.to_numeric(self.state_data["area_ha"], errors="coerce").sum())
+        total_forest = float(pd.to_numeric(self.state_data["extent_2000_ha"], errors="coerce").sum())
+        total_loss = float(pd.to_numeric(self.state_data["total_loss_ha"], errors="coerce").sum())
+        total_gain = float(pd.to_numeric(self.state_data.get("gain_2000-2012_ha", 0), errors="coerce").sum())
+        total_emissions = float(self.state_data[emissions_present].apply(pd.to_numeric, errors="coerce").sum().sum()) if emissions_present else 0.0
+
+        overview = {
+            "total_area_ha": total_area,
+            "total_forest_2000_ha": total_forest,
+            "total_loss_ha": total_loss,
+            "total_gain_ha": total_gain,
+            "net_loss_ha": total_loss - total_gain,
+            "total_emissions_Mg": total_emissions,
+            "forest_cover_pct_2000": round(total_forest / total_area * 100, 2) if total_area > 0 else 0,
+            "avg_annual_loss_ha": total_loss / len(PAST_YEARS),
+            "num_states": len(self.state_data),
+            "num_critical_states": sum(x["fuzzy_priority_label"] == "Critical" for x in rankings),
+            "num_high_states": sum(x["fuzzy_priority_label"] == "High" for x in rankings),
+            "best_regression_model_by_oof_mae": self.models.best_model_name,
         }
-        for y in PAST_YEARS:
-            ecol = f'gfw_gross_emissions_co2e_all_gases_{y}__Mg'
-            if ecol in self.state_data.columns:
-                national_timeline['annual_emissions_Mg'].append(
-                    float(self.state_data[ecol].sum())
-                )
-            else:
-                national_timeline['annual_emissions_Mg'].append(0)
 
-        national_timeline['cumulative_loss_ha'] = np.cumsum(
-            national_timeline['annual_loss_ha']
-        ).tolist()
-
-        top_features = {}
-        for model_name, importances in self.ensemble.feature_importance.items():
-            sorted_features = sorted(importances.items(), key=lambda x: x[1], reverse=True)
-            top_features[model_name] = [
-                {'feature': f, 'importance': round(v, 4)} for f, v in sorted_features[:10]
+        feature_importance = {}
+        for model_name, importance in self.models.feature_importance.items():
+            feature_importance[model_name] = [
+                {"feature": k, "importance": v}
+                for k, v in sorted(importance.items(), key=lambda pair: pair[1], reverse=True)
             ]
 
-        total_projected_avoidance = sum(
-            max(0, f['projected_loss_avoidance_ha']) for f in state_forecasts.values()
-        )
-        total_carbon_savings = sum(
-            max(0, f['carbon_savings_Mg']) for f in state_forecasts.values()
-        )
-
-        reforestation_plan = []
-        for state in state_rankings:
-            forecast = state_forecasts.get(state['name'], {})
-            avoidance = max(0, forecast.get('projected_loss_avoidance_ha', 0))
-            csavings = max(0, forecast.get('carbon_savings_Mg', 0))
-            reforestation_plan.append({
-                'name': state['name'],
-                'priority_label': state['fuzzy_priority_label'],
-                'priority_score': state['fuzzy_priority_score'],
-                'projected_loss_avoidance_ha': avoidance,
-                'carbon_savings_Mg': csavings,
-                'current_loss_rate': state['avg_annual_loss_ha'],
-            })
-        reforestation_plan.sort(key=lambda x: x['priority_score'], reverse=True)
-
         self.results = {
-            'overview': {
-                'total_area_ha': total_area,
-                'total_forest_2000_ha': total_forest_2000,
-                'total_loss_ha': total_loss,
-                'total_gain_ha': total_gain,
-                'net_loss_ha': total_loss - total_gain,
-                'total_emissions_Mg': total_emissions,
-                'forest_cover_pct_2000': round(total_forest_2000 / total_area * 100, 2) if total_area > 0 else 0,
-                'forest_cover_pct_current': round(
-                    (total_forest_2000 - total_loss + total_gain) / total_area * 100, 2
-                ) if total_area > 0 else 0,
-                'isfr_forest_cover_pct': 21.76,
-                'isfr_tree_cover_pct': 3.41,
-                'isfr_total_cover_pct': 25.17,
-                'isfr_report_year': 2023,
-                'isfr_forest_area_sqkm': 713789,
-                'isfr_tree_cover_sqkm': 111818,
-                'avg_annual_loss_ha': total_loss / 20,
-                'total_projected_loss_avoidance_ha': total_projected_avoidance,
-                'total_carbon_savings_Mg': total_carbon_savings,
-                'num_states': len(state_rankings),
-                'num_critical_states': sum(1 for s in state_rankings if s['fuzzy_priority_label'] == 'Critical'),
-                'num_high_states': sum(1 for s in state_rankings if s['fuzzy_priority_label'] == 'High'),
+            "overview": overview,
+            "national_timeline": {
+                "years": PAST_YEARS,
+                "annual_loss_ha": annual_national_loss,
+                "annual_emissions_Mg": annual_national_emissions,
+                "cumulative_loss_ha": np.cumsum(annual_national_loss).tolist(),
             },
-            'national_timeline': national_timeline,
-            'state_rankings': state_rankings,
-            'state_forecasts': state_forecasts,
-            'country_forecast': country_forecast,
-            'model_performance': metrics,
-            'feature_importance': top_features,
-            'smote_analysis': smote_results,
-            'reforestation_plan': reforestation_plan,
+            "state_rankings": rankings,
+            "state_forecasts": forecasts,
+            "country_forecast": country_forecast,
+            "model_performance": metrics,
+            "feature_importance": feature_importance,
+            "reforestation_plan": plan,
+            "methodology_notes": [
+                "Regression predictors exclude features directly derived from the 2001–2020 loss target.",
+                "Reported regression metrics are out-of-fold estimates from shuffled K-fold cross-validation.",
+                "With few state-level samples, performance estimates have high uncertainty.",
+                "The reforestation forecast is an illustrative scenario, not a causal policy-impact estimate.",
+                "Fuzzy/vulnerability scores are decision-support rankings, not ground-truth labels.",
+            ],
         }
+        self.save_results()
+        print("\nPipeline complete.")
+        print(f"Outputs: {OUTPUT_DIR.resolve()}")
+        print(f"Models:  {MODEL_DIR.resolve()}")
+        print(f"Selected model by OOF MAE: {self.models.best_model_name}")
+        for name, values in metrics.items():
+            if name != "_selection":
+                print(f"  {name}: R²={values['r2']:.3f}, MAE={values['mae']:,.1f}, RMSE={values['rmse']:,.1f}")
+        return self.results
 
-    def _save_results(self):
-        """Save all results to JSON files."""
-        print("💾 Saving results...")
-
-        with open(OUTPUT_DIR / 'pipeline_results.json', 'w') as f:
-            json.dump(self.results, f, indent=2, default=str)
-
-        components = {
-            'overview.json': self.results['overview'],
-            'national_timeline.json': self.results['national_timeline'],
-            'state_rankings.json': self.results['state_rankings'],
-            'state_forecasts.json': self.results['state_forecasts'],
-            'country_forecast.json': self.results['country_forecast'],
-            'model_performance.json': self.results['model_performance'],
-            'feature_importance.json': self.results['feature_importance'],
-            'smote_analysis.json': self.results['smote_analysis'],
-            'reforestation_plan.json': self.results['reforestation_plan'],
-        }
-
-        for filename, data in components.items():
-            with open(OUTPUT_DIR / filename, 'w') as f:
-                json.dump(data, f, indent=2, default=str)
-
-        for name, model in self.ensemble.models.items():
-            safe_name = name.lower().replace(' ', '_')
-            joblib.dump(model, MODEL_DIR / f'{safe_name}.joblib')
-
-        print(f"  ✅ Saved {len(components)} JSON files and {len(self.ensemble.models)} models")
+    def save_results(self) -> None:
+        write_json(OUTPUT_DIR / "pipeline_results.json", self.results)
+        for key, value in self.results.items():
+            write_json(OUTPUT_DIR / f"{key}.json", value)
+        if self.state_data is not None:
+            self.state_data.to_csv(OUTPUT_DIR / "state_features_and_scores.csv", index=False)
+        for name, model in self.models.models.items():
+            safe = name.lower().replace(" ", "_")
+            joblib.dump(model, MODEL_DIR / f"{safe}.joblib")
+        print(f"Saved outputs and {len(self.models.models)} models.")
 
 
-# ============================================================================
-# ENTRY POINT
-# ============================================================================
-if __name__ == '__main__':
+if __name__ == "__main__":
     pipeline = ReforestationPipeline()
-    results = pipeline.run()
-
-    print("\n" + "=" * 70)
-    print("📊 SUMMARY")
-    print("=" * 70)
-    overview = results['overview']
-    print(f"  🌍 Total Area: {overview['total_area_ha']:,.0f} ha")
-    print(f"  🌲 Forest Cover (2000): {overview['forest_cover_pct_2000']}%")
-    print(f"  🌲 Forest Cover (Current): {overview['forest_cover_pct_current']}%")
-    print(f"  ❌ Total Loss: {overview['total_loss_ha']:,.0f} ha")
-    print(f"  ✅ Total Gain: {overview['total_gain_ha']:,.0f} ha")
-    print(f"  📉 Net Loss: {overview['net_loss_ha']:,.0f} ha")
-    print(f"  🏭 Total CO2 Emissions: {overview['total_emissions_Mg']:,.0f} Mg")
-    print(f"  🌿 Projected Loss Avoidance: {overview['total_projected_loss_avoidance_ha']:,.0f} ha")
-    print(f"  💨 Potential Carbon Savings: {overview['total_carbon_savings_Mg']:,.0f} Mg")
-    print(f"  🔴 Critical Priority States: {overview['num_critical_states']}")
-    print(f"  🟠 High Priority States: {overview['num_high_states']}")
-
-    print("\n🏆 Top ML Model Performance:")
-    best_model = max(results['model_performance'].items(), key=lambda x: x[1].get('test_r2', 0))
-    print(f"  Best Model: {best_model[0]}")
-    print(f"  Test R²: {best_model[1]['test_r2']:.4f}")
-    print(f"  Test MAE: {best_model[1]['test_mae']:.2f}")
-    print(f"  Test RMSE: {best_model[1]['test_rmse']:.2f}")
-    print(f"  Overfit Gap: {best_model[1]['overfit_gap']:.4f}")
+    result = pipeline.run()
+    print("\nSUMMARY")
+    print(json.dumps(result["overview"], indent=2))
