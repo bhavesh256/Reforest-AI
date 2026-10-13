@@ -47,29 +47,6 @@ trained on leaked information.
 Expect R^2 to drop substantially after this fix — that's the honest,
 correct result for 36 samples and truly independent features, not a
 regression.
-
-------------------------------------------------------------------------------
-FIX NOTES (this version, round 2) -- LOO-CV hang / speed
-------------------------------------------------------------------------------
-The last run wasn't crashing on an error -- it ended in KeyboardInterrupt,
-meaning it was manually interrupted (Ctrl+C) while stuck in the
-Leave-One-Out cross-validation loop at the end of EnsembleModels.train_all().
-
-With 36 samples and 11 models, the old code refit EVERY model 36 times each
-(396 fits total), sequentially (cross_val_predict defaulted to 1 worker),
-with no progress output between models. HistGradientBoosting, CatBoost, and
-especially the Stacking Ensemble (which itself trains 3 sub-models per fold,
-i.e. 3x the work) made this look hung even though it was just slow.
-
-Fix applied below in EnsembleModels._run_loo_cv():
-  1. cross_val_predict now uses n_jobs=-1 (parallel across folds/cores)
-     instead of the default single-threaded execution.
-  2. Per-model progress + timing is printed so it's obvious it's working.
-  3. The Stacking Ensemble is skipped by default for LOO-CV (it costs ~3x
-     a normal model per fold and adds little extra insight beyond its base
-     learners' own LOO scores). Pass skip_stacking_loo=False to include it.
-  4. The try/except per model is preserved so one slow/failing model can't
-     take down the whole run.
 ------------------------------------------------------------------------------
 """
 
@@ -77,7 +54,6 @@ import pandas as pd
 import numpy as np
 import json
 import os
-import time
 import warnings
 from pathlib import Path
 
@@ -182,15 +158,6 @@ class DataLoader:
 
         # Clean up
         merged = merged.dropna(subset=['subnational1'])
-
-        # SCALE LOSS DATA TO MATCH 2.4M HA TOTAL (as requested)
-        loss_cols = [f'tc_loss_ha_{y}' for y in range(2001, 2021)]
-        current_total = merged[loss_cols].sum().sum()
-        if current_total > 0:
-            scale_factor = 2400000.0 / current_total
-            for col in loss_cols:
-                merged[col] = merged[col] * scale_factor
-            print(f"  📈 Scaled loss data from {current_total:,.0f} to 2,400,000 ha (factor: {scale_factor:.4f})")
 
         # Validate emission data is present
         emission_sample_col = 'gfw_gross_emissions_co2e_all_gases_2001__Mg'
@@ -314,7 +281,7 @@ class FeatureEngineer:
             if np.all(np.isnan(losses)):
                 slopes.append(0)
             else:
-                losses = np.nan_to_num(losses, copy=True, nan=0.0)
+                losses = np.nan_to_num(losses, 0)
                 slope = np.polyfit(years_array, losses, 1)[0]
                 slopes.append(slope)
         result['loss_trend_slope'] = slopes
@@ -597,7 +564,7 @@ class SMOTEAnalyzer:
         X = df_class[feature_cols].values
         y = df_class['priority_encoded'].values
 
-        X = np.nan_to_num(X, copy=True, nan=0.0)
+        X = np.nan_to_num(X, 0)
 
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
@@ -682,8 +649,7 @@ class EnsembleModels:
         self.feature_importance = {}
         self.scaler = StandardScaler()
 
-    def train_all(self, df, feature_cols, target_col='total_loss_ha',
-                  skip_stacking_loo=True, loo_n_jobs=-1):
+    def train_all(self, df, feature_cols, target_col='total_loss_ha'):
         """Train all models and evaluate."""
         print("🤖 Training Ensemble Models...")
         print(f"  ℹ️  Using {len(feature_cols)} leakage-free features: {feature_cols}")
@@ -691,8 +657,8 @@ class EnsembleModels:
         X = df[feature_cols].values
         y = df[target_col].values
 
-        X = np.nan_to_num(X, copy=True, nan=0.0)
-        y = np.nan_to_num(y, copy=True, nan=0.0)
+        X = np.nan_to_num(X, 0)
+        y = np.nan_to_num(y, 0)
 
         X_scaled = self.scaler.fit_transform(X)
 
@@ -810,50 +776,12 @@ class EnsembleModels:
         self.models['Stacking Ensemble'] = stacking
         self._evaluate(stacking, X_train, y_train, X_test, y_test, 'Stacking Ensemble', feature_cols)
 
-        # --------------------------------------------------------------
-        # FIXED: Leave-One-Out Cross-Validation (was hanging / very slow)
-        # --------------------------------------------------------------
-        # See module docstring "FIX NOTES (round 2)" for the full explanation.
-        # Key changes: n_jobs=-1 for parallel folds, per-model timing/progress
-        # printed, and the Stacking Ensemble skipped by default (3x cost/fold).
-        self._run_loo_cv(
-            X_scaled, y,
-            skip_stacking_loo=skip_stacking_loo,
-            n_jobs=loo_n_jobs
-        )
-
-        print("  ✅ All models trained!")
-        return self.models, self.metrics
-
-    def _run_loo_cv(self, X_scaled, y, skip_stacking_loo=True, n_jobs=-1):
-        """Leave-One-Out CV for every trained model, parallelized and with
-        visible progress so a slow model doesn't look like a hang.
-
-        skip_stacking_loo=True skips the Stacking Ensemble (it trains 3
-        sub-models per fold -> ~3x the cost of any other model here) since
-        its base learners already get their own LOO scores individually.
-        Set to False if you specifically need the stacked model's LOO R^2.
-        """
+        # Leave-One-Out Cross-Validation (more reliable for a small sample)
         print("  🔄 Running Leave-One-Out Cross-Validation...")
         loo = LeaveOneOut()
-        n_models = len(self.models)
-
-        for i, (name, model) in enumerate(self.models.items(), start=1):
-            if skip_stacking_loo and name == 'Stacking Ensemble':
-                print(f"    ⏭️  ({i}/{n_models}) Skipping LOO-CV for {name} "
-                      f"(3x cost per fold — pass skip_stacking_loo=False to include)")
-                self.metrics[name]['cv_r2_mean'] = None
-                self.metrics[name]['cv_r2_std'] = None
-                self.metrics[name]['cv_r2_scores'] = None
-                continue
-
-            print(f"    ⏳ ({i}/{n_models}) {name}: running {len(y)} LOO folds...")
-            t0 = time.time()
+        for name, model in self.models.items():
             try:
-                # n_jobs=-1: fit the 36 (n_samples) leave-one-out folds in
-                # parallel across CPU cores instead of one at a time. This is
-                # the main fix for the apparent hang.
-                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo, n_jobs=n_jobs)
+                loo_preds = cross_val_predict(model, X_scaled, y, cv=loo)
                 loo_r2 = float(r2_score(y, loo_preds))
                 self.metrics[name]['cv_r2_mean'] = loo_r2
                 self.metrics[name]['cv_r2_std'] = 0.0
@@ -864,14 +792,14 @@ class EnsembleModels:
                     float(np.median(abs_errors)),
                     float(np.percentile(abs_errors, 75)),
                 ]
-                elapsed = time.time() - t0
-                print(f"    ✅ ({i}/{n_models}) {name}: LOO R²={loo_r2:.4f}  ({elapsed:.1f}s)")
             except Exception as e:
-                elapsed = time.time() - t0
-                print(f"    ⚠️  LOO-CV failed for {name} after {elapsed:.1f}s: {e}")
+                print(f"    ⚠️  LOO-CV failed for {name}: {e}")
                 self.metrics[name]['cv_r2_mean'] = 0.0
                 self.metrics[name]['cv_r2_std'] = 0.0
                 self.metrics[name]['cv_r2_scores'] = [0.0, 0.0, 0.0]
+
+        print("  ✅ All models trained!")
+        return self.models, self.metrics
 
     def _evaluate(self, model, X_train, y_train, X_test, y_test, name, feature_cols):
         """Evaluate a model."""
@@ -928,7 +856,7 @@ class TimeSeriesForecaster:
         """
         years = np.array(PAST_YEARS, dtype=float)
         losses = np.array(annual_losses, dtype=float)
-        losses = np.nan_to_num(losses, copy=True, nan=0.0)
+        losses = np.nan_to_num(losses, 0)
 
         coeffs = np.polyfit(years, losses, 2)
         poly_func = np.poly1d(coeffs)
@@ -965,7 +893,7 @@ class TimeSeriesForecaster:
         # --- Carbon Projections ---
         if annual_emissions is not None:
             emissions = np.array(annual_emissions, dtype=float)
-            emissions = np.nan_to_num(emissions, copy=True, nan=0.0)
+            emissions = np.nan_to_num(emissions, 0)
             total_loss_sum = np.sum(losses)
             avg_emission_per_loss = np.sum(emissions) / max(total_loss_sum, 1)
 
@@ -1141,12 +1069,8 @@ class ReforestationPipeline:
         smote_results = self.smote_analyzer.run_analysis(self.state_data, smote_feature_cols)
 
         # Step 6: Ensemble Models (leakage-free feature set)
-        # skip_stacking_loo=True avoids the slowest part of the old hang
-        # (Stacking Ensemble LOO-CV = 3x model fits per fold). Set to False
-        # if you specifically need that number and are willing to wait.
         models, metrics = self.ensemble.train_all(
-            self.state_data, feature_cols, target_col='total_loss_ha',
-            skip_stacking_loo=True, loo_n_jobs=-1
+            self.state_data, feature_cols, target_col='total_loss_ha'
         )
 
         # Step 7: Time-Series Forecasting

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  reforestation-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: reforestation-intelligence:latest
+    container_name: reforestation-app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - FLASK_ENV=production
+    volumes:
+      - ./ml_outputs:/app/ml_outputs
+      - ./models:/app/models

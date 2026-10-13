@@ -14,13 +14,41 @@ app = Flask(__name__)
 OUTPUT_DIR = Path('ml_outputs')
 
 
+def sanitize_nan(obj):
+    """Recursively replace NaN and Inf with None for valid JSON output."""
+    import math
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_nan(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_nan(v) for v in obj]
+    return obj
+
+
 def load_json(filename):
     """Load a JSON file from the ml_outputs directory."""
     filepath = OUTPUT_DIR / filename
     if filepath.exists():
         with open(filepath, 'r') as f:
-            return json.load(f)
+            try:
+                data = json.load(f)
+                return sanitize_nan(data)
+            except Exception:
+                return {}
     return {}
+
+
+@app.after_request
+def add_cache_headers(response):
+    """Ensure API responses are never cached by browsers or intermediaries."""
+    if hasattr(response, 'headers'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 
 # ============================================================================
@@ -30,6 +58,9 @@ def load_json(filename):
 @app.route('/')
 def index():
     """Serve the main SPA dashboard."""
+    static_index = Path('static') / 'index.html'
+    if static_index.exists():
+        return send_from_directory('static', 'index.html')
     return render_template('index.html')
 
 
@@ -112,12 +143,12 @@ def api_all():
 if __name__ == '__main__':
     # Check if ML pipeline has been run
     if not (OUTPUT_DIR / 'pipeline_results.json').exists():
-        print("⚠️  ML pipeline results not found. Running pipeline first...")
+        print("ML pipeline results not found. Running pipeline first...")
         from ml_pipeline import ReforestationPipeline
         pipeline = ReforestationPipeline()
         pipeline.run()
-        print("✅ Pipeline complete. Starting web server...")
+        print("Pipeline complete. Starting web server...")
     else:
-        print("✅ ML pipeline results found. Starting web server...")
+        print("ML pipeline results found. Starting web server...")
 
     app.run(debug=True, host='0.0.0.0', port=5000)

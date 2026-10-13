@@ -78,14 +78,16 @@ const AnimatedNumber = ({ value, duration = 1500, suffix = "", prefix = "" }) =>
   useEffect(() => {
     const end = parseFloat(value) || 0
     let startTime = null
+    let animId = null
     const update = (ts) => {
       if (!startTime) startTime = ts
       const p = Math.min((ts - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - p, 3)
       setCount(end * eased)
-      if (p < 1) requestAnimationFrame(update)
+      if (p < 1) animId = requestAnimationFrame(update)
     }
-    requestAnimationFrame(update)
+    animId = requestAnimationFrame(update)
+    return () => { if (animId) cancelAnimationFrame(animId) }
   }, [value, duration])
   return <span>{prefix}{fmt(count)}{suffix}</span>
 }
@@ -184,11 +186,8 @@ const Navbar = () => {
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'glass-panel border-x-0 border-t-0 rounded-none shadow-2xl' : 'bg-transparent border-b border-transparent'}`}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-        <a href="#dashboard" className="flex items-center gap-2.5 text-xl font-display font-bold text-white group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(0,230,118,0.5)]">
-            <Trees size={20} className="text-background" />
-          </div>
-          <span className="tracking-tight">ReForest <span className="text-primary">AI</span></span>
+        <a href="#dashboard" className="flex items-center text-xl font-display font-bold text-white tracking-tight hover:opacity-90 transition-opacity">
+          <span>Reforestation <span className="text-primary font-normal">Intelligence</span></span>
         </a>
         
         <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-text-muted p-2 hover:bg-white/5 rounded-lg transition-colors">
@@ -279,7 +278,7 @@ const HeroDashboard = ({ data }) => {
                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10"><ShieldCheck size={20} className="text-white" /></div>
                 <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Official Cover</span>
               </div>
-              <Tooltip text={`ISFR ${o.isfr_report_year}: Forest cover ${o.isfr_forest_cover_pct}% (${(o.isfr_forest_area_sqkm/1000).toFixed(0)}K km²) + Tree cover ${o.isfr_tree_cover_pct}% = ${o.isfr_total_cover_pct}% total. GFW measures only dense canopy (>30%).`}>
+              <Tooltip text={`ISFR ${o?.isfr_report_year || '2023'}: Forest cover ${o?.isfr_forest_cover_pct || 0}% (${((o?.isfr_forest_area_sqkm || 0) / 1000).toFixed(0)}K km²) + Tree cover ${o?.isfr_tree_cover_pct || 0}% = ${o?.isfr_total_cover_pct || 0}% total. GFW measures only dense canopy (>30%).`}>
                 <Info size={16} className="text-text-muted cursor-help hover:text-white transition-colors" />
               </Tooltip>
             </div>
@@ -326,7 +325,7 @@ const PastAnalysis = ({ data }) => {
                 x: t.years, y: t.annual_loss_ha, type: 'bar',
                 marker: {
                   color: t.annual_loss_ha.map(v => {
-                    const max = Math.max(...t.annual_loss_ha)
+                    const max = Math.max(...(t.annual_loss_ha.length > 0 ? t.annual_loss_ha : [1]))
                     const r = v / max
                     return r > 0.8 ? COLORS.red : r > 0.5 ? COLORS.warning : COLORS.teal
                   }),
@@ -518,10 +517,18 @@ const FutureScenarios = ({ data }) => {
   if (!pred || !pred.country_forecast) return null
   const cf = pred.country_forecast
 
-  const bauTotal = cf.bau_scenario.annual_loss_ha.reduce((a, b) => a + b, 0)
-  const refTotal = cf.reforestation_scenario.annual_loss_ha.reduce((a, b) => a + b, 0)
-  const bauEmTotal = cf.bau_scenario.annual_emissions_Mg.reduce((a, b) => a + b, 0)
-  const refEmTotal = cf.reforestation_scenario.annual_emissions_Mg.reduce((a, b) => a + b, 0)
+  const bauLoss = cf?.bau_scenario?.annual_loss_ha || []
+  const refLoss = cf?.reforestation_scenario?.annual_loss_ha || []
+  const bauEm = cf?.bau_scenario?.annual_emissions_Mg || []
+  const refEm = cf?.reforestation_scenario?.annual_emissions_Mg || []
+
+  const bauTotal = bauLoss.reduce((a, b) => a + b, 0)
+  const refTotal = refLoss.reduce((a, b) => a + b, 0)
+  const bauEmTotal = bauEm.reduce((a, b) => a + b, 0)
+  const refEmTotal = refEm.reduce((a, b) => a + b, 0)
+
+  const bauCumulative = cf?.bau_scenario?.cumulative_loss_ha || []
+  const refCumulative = cf?.reforestation_scenario?.cumulative_loss_ha || []
 
   return (
     <section id="future" className="py-24 relative">
@@ -549,7 +556,7 @@ const FutureScenarios = ({ data }) => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Cumulative Loss by 2030</span>
-                <span className="text-xl font-bold text-danger">{fmtHa(cf.bau_scenario.cumulative_loss_ha[cf.bau_scenario.cumulative_loss_ha.length - 1])}</span>
+                <span className="text-xl font-bold text-danger">{fmtHa(bauCumulative[bauCumulative.length - 1] ?? 0)}</span>
               </div>
             </div>
           </SpotlightCard>
@@ -575,7 +582,7 @@ const FutureScenarios = ({ data }) => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-text-muted uppercase tracking-wider">Cumulative Loss by 2030</span>
-                <span className="text-xl font-bold text-primary">{fmtHa(cf.reforestation_scenario.cumulative_loss_ha[cf.reforestation_scenario.cumulative_loss_ha.length - 1])}</span>
+                <span className="text-xl font-bold text-primary">{fmtHa(refCumulative[refCumulative.length - 1] ?? 0)}</span>
               </div>
             </div>
           </SpotlightCard>
@@ -615,20 +622,20 @@ const MODEL_CATEGORIES = {
   'Linear Regression': {
     icon: '📏',
     color: 'rgba(68, 138, 255, 0.15)',
-    models: ['Ridge', 'Bayesian Ridge'],
+    models: ['Ridge', 'Bayesian Ridge', 'ElasticNet'],
     description: 'Linear models with regularization'
   },
   'Boosting Algorithms': {
     icon: '🚀',
     color: 'rgba(255, 193, 7, 0.15)',
-    models: ['Gradient Boosting', 'XGBoost', 'AdaBoost', 'AdaBoost (Deep Trees)', 'AdaBoost (Linear Loss)', 'HistGradientBoosting', 'LightGBM'],
+    models: ['Gradient Boosting', 'HistGradientBoosting', 'XGBoost', 'CatBoost', 'AdaBoost', 'LightGBM'],
     description: 'Sequential learners that correct previous errors'
   },
   'Ensemble Learning': {
     icon: '🌲',
     color: 'rgba(0, 230, 118, 0.15)',
-    models: ['Random Forest', 'Extra Trees', 'Bagging Trees'],
-    description: 'Parallel learners combined for robust predictions'
+    models: ['Random Forest', 'Extra Trees', 'Bagging Trees', 'Stacking Ensemble'],
+    description: 'Parallel & stacked learners for robust predictions'
   },
 }
 
@@ -645,8 +652,8 @@ const MLInsights = ({ data }) => {
   // Build categorized model entries — only keep models in our 3 categories
   const allowedModels = new Set(Object.values(MODEL_CATEGORIES).flatMap(c => c.models))
   const modelEntries = Object.entries(models)
-    .filter(([k, v]) => !['feature_importance', 'smote_analysis', '__selected_model__'].includes(k) && v.test_r2 > 0 && allowedModels.has(k))
-    .sort((a, b) => b[1].test_r2 - a[1].test_r2)
+    .filter(([k, v]) => !['feature_importance', 'smote_analysis', '__selected_model__'].includes(k) && typeof v === 'object' && v !== null && (v.test_r2 ?? 0) > 0 && allowedModels.has(k))
+    .sort((a, b) => (b[1].test_r2 ?? 0) - (a[1].test_r2 ?? 0))
 
   const filteredEntries = activeCategory === 'all'
     ? modelEntries
@@ -669,7 +676,7 @@ const MLInsights = ({ data }) => {
   }
 
   const catColors = { 'Linear Regression': '#448aff', 'Boosting Algorithms': '#ffc107', 'Ensemble Learning': '#00e676' }
-  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'AdaBoost': '🔥', 'AdaBoost (Deep Trees)': '🔥', 'AdaBoost (Linear Loss)': '🔥', Ridge: '📏', 'Extra Trees': '🌳', 'Gradient Boosting': '📈', 'HistGradientBoosting': '📊', 'Bagging Trees': '🎒', 'Bayesian Ridge': '📐', 'LightGBM': '💡' }
+  const icons = { 'Random Forest': '🌲', 'XGBoost': '🚀', 'CatBoost': '⚡', 'AdaBoost': '🔥', 'AdaBoost (Deep Trees)': '🔥', 'AdaBoost (Linear Loss)': '🔥', Ridge: '📏', 'Extra Trees': '🌳', 'Gradient Boosting': '📈', 'HistGradientBoosting': '📊', 'Bagging Trees': '🎒', 'Bayesian Ridge': '📐', 'ElasticNet': '📐', 'LightGBM': '💡', 'Stacking Ensemble': '🏛️' }
 
   return (
     <section id="ai" className="py-24 relative">
@@ -873,7 +880,7 @@ const ReforestationPlan = ({ data }) => {
   if (!plan || !o) return null
 
   // Filter out states that don't need reforestation and sort
-  const sorted = [...plan].filter(s => s.projected_loss_avoidance_ha > 0).sort((a, b) => b.priority_score - a.priority_score)
+  const sorted = [...(plan || [])].filter(s => s && s.projected_loss_avoidance_ha > 0).sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
   const priorityColors = { Critical: COLORS.red, High: COLORS.warning, Moderate: COLORS.blue, Low: COLORS.green }
 
   return (
@@ -975,10 +982,7 @@ const Footer = () => (
     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
     <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
       <div className="flex items-center justify-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_15px_rgba(0,230,118,0.3)]">
-          <Trees size={20} className="text-background" />
-        </div>
-        <span className="font-display font-bold text-2xl text-white tracking-tight">ReForest AI</span>
+        <span className="font-display font-bold text-2xl text-white tracking-tight">Reforestation Intelligence</span>
       </div>
       <p className="text-base text-text-muted mb-4 max-w-xl mx-auto">
         Advanced machine learning models predicting deforestation patterns and optimizing reforestation strategies for India.
@@ -1008,12 +1012,12 @@ function App() {
     const fetchData = async () => {
       try {
         const [overview, timeline, states, predictions, modelPerf, reforestPlan] = await Promise.all([
-          fetch('/api/overview').then(r => { if (!r.ok) throw new Error('Overview failed'); return r.json() }),
-          fetch('/api/timeline').then(r => { if (!r.ok) throw new Error('Timeline failed'); return r.json() }),
-          fetch('/api/states').then(r => { if (!r.ok) throw new Error('States failed'); return r.json() }),
-          fetch('/api/predictions').then(r => { if (!r.ok) throw new Error('Predictions failed'); return r.json() }),
-          fetch('/api/model-performance').then(r => { if (!r.ok) throw new Error('Model perf failed'); return r.json() }),
-          fetch('/api/reforestation-plan').then(r => { if (!r.ok) throw new Error('Plan failed'); return r.json() }),
+          fetch('/api/overview').then(r => { if (!r.ok) throw new Error(`Overview: HTTP ${r.status}`); return r.json() }),
+          fetch('/api/timeline').then(r => { if (!r.ok) throw new Error(`Timeline: HTTP ${r.status}`); return r.json() }),
+          fetch('/api/states').then(r => { if (!r.ok) throw new Error(`States: HTTP ${r.status}`); return r.json() }),
+          fetch('/api/predictions').then(r => { if (!r.ok) throw new Error(`Predictions: HTTP ${r.status}`); return r.json() }),
+          fetch('/api/model-performance').then(r => { if (!r.ok) throw new Error(`Model perf: HTTP ${r.status}`); return r.json() }),
+          fetch('/api/reforestation-plan').then(r => { if (!r.ok) throw new Error(`Plan: HTTP ${r.status}`); return r.json() }),
         ])
         setAppData({ overview, timeline, states, predictions, modelPerformance: modelPerf, reforestationPlan: reforestPlan })
       } catch (err) {
@@ -1048,7 +1052,6 @@ function App() {
           <div className="relative">
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
             <div className="w-24 h-24 border-4 border-white/10 border-t-primary rounded-full animate-spin relative z-10" />
-            <Trees size={32} className="text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20" />
           </div>
           <div className="text-center">
             <div className="text-2xl font-display font-bold text-white mb-2">Loading Reforestation Intelligence</div>
