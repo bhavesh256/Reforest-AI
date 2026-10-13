@@ -220,7 +220,7 @@ const Navbar = () => {
 // SECTION: HERO DASHBOARD
 // ============================================================================
 const HeroDashboard = ({ data }) => {
-  const o = data.overview
+  const o = data?.overview || {}
   return (
     <section id="dashboard" className="pt-32 pb-16 relative">
       <FadeInSection className="text-center max-w-5xl mx-auto mb-20 relative z-10">
@@ -244,7 +244,7 @@ const HeroDashboard = ({ data }) => {
               <div className="w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center border border-danger/20"><AlertTriangle size={20} className="text-danger" /></div>
               <span className="text-sm font-semibold text-text-muted uppercase tracking-wider">Total Forest Loss</span>
             </div>
-            <div className="text-4xl md:text-5xl font-display font-bold text-danger glow-danger mb-2"><AnimatedNumber value={o.total_loss_ha} suffix=" ha" /></div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-danger glow-danger mb-2"><AnimatedNumber value={o.total_loss_ha ?? 0} suffix=" ha" /></div>
             <div className="text-sm text-text-muted">Since 2001 · GFW Data (&gt;30% canopy)</div>
           </SpotlightCard>
         </FadeInSection>
@@ -266,7 +266,7 @@ const HeroDashboard = ({ data }) => {
               <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30"><Trees size={20} className="text-primary" /></div>
               <span className="text-sm font-semibold text-primary uppercase tracking-wider">Reforestation Target</span>
             </div>
-            <div className="text-4xl md:text-5xl font-display font-bold text-primary glow-text mb-2"><AnimatedNumber value={o.total_projected_loss_avoidance_ha} suffix=" ha" /></div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-primary glow-text mb-2"><AnimatedNumber value={o.total_projected_loss_avoidance_ha ?? 0} suffix=" ha" /></div>
             <div className="text-sm text-primary/80">AI-recommended intervention area</div>
           </SpotlightCard>
         </FadeInSection>
@@ -282,8 +282,8 @@ const HeroDashboard = ({ data }) => {
                 <Info size={16} className="text-text-muted cursor-help hover:text-white transition-colors" />
               </Tooltip>
             </div>
-            <div className="text-4xl md:text-5xl font-display font-bold text-white mb-2"><AnimatedNumber value={o.isfr_total_cover_pct} suffix="%" /></div>
-            <div className="text-sm text-text-muted">ISFR {o.isfr_report_year} · Forest + Tree Cover</div>
+            <div className="text-4xl md:text-5xl font-display font-bold text-white mb-2"><AnimatedNumber value={o.isfr_total_cover_pct ?? 0} suffix="%" /></div>
+            <div className="text-sm text-text-muted">ISFR {o.isfr_report_year ?? '2023'} · Forest + Tree Cover</div>
           </SpotlightCard>
         </FadeInSection>
       </div>
@@ -422,9 +422,9 @@ const PastAnalysis = ({ data }) => {
 // SECTION: PRESENT STATE
 // ============================================================================
 const PresentState = ({ data }) => {
-  const o = data.overview
-  const states = data.states
-  if (!states) return null
+  const o = data?.overview || {}
+  const states = Array.isArray(data?.states) ? data.states : []
+  if (states.length === 0) return null
 
   const top10 = states.slice(0, 10)
 
@@ -435,9 +435,9 @@ const PresentState = ({ data }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         {[
-          { label: 'Dense Forest Cover', value: `${o.forest_cover_pct_current}%`, detail: 'GFW >30% canopy threshold', color: 'text-primary', icon: Trees },
-          { label: 'Net Forest Loss', value: fmtHa(o.net_loss_ha), detail: 'Total loss minus total gain', color: 'text-danger', icon: TrendingDown },
-          { label: 'Avg. Annual Loss', value: fmtHa(o.avg_annual_loss_ha), detail: 'Per year over study period', color: 'text-warning', icon: Activity },
+          { label: 'Dense Forest Cover', value: `${o.forest_cover_pct_current ?? '—'}%`, detail: 'GFW >30% canopy threshold', color: 'text-primary', icon: Trees },
+          { label: 'Net Forest Loss', value: fmtHa(o.net_loss_ha ?? 0), detail: 'Total loss minus total gain', color: 'text-danger', icon: TrendingDown },
+          { label: 'Avg. Annual Loss', value: fmtHa(o.avg_annual_loss_ha ?? 0), detail: 'Per year over study period', color: 'text-warning', icon: Activity },
         ].map((item, i) => (
           <FadeInSection key={i} delay={i * 0.1}>
             <SpotlightCard className="h-full border-t-4" style={{ borderTopColor: COLORS[item.color.replace('text-', '')] || COLORS.white }}>
@@ -458,8 +458,8 @@ const PresentState = ({ data }) => {
             <h3 className="text-xl font-bold text-white mb-6">Top 10 Most Affected States</h3>
             <Plot
               data={[{
-                y: top10.map(s => s.name).reverse(),
-                x: top10.map(s => s.total_loss_ha).reverse(),
+                y: top10.map(s => s?.name || '').reverse(),
+                x: top10.map(s => s?.total_loss_ha ?? 0).reverse(),
                 type: 'bar', orientation: 'h',
                 marker: { color: top10.map((_, i) => i < 3 ? COLORS.red : i < 6 ? COLORS.warning : COLORS.teal).reverse(), opacity: 0.9, line: {width: 0} },
                 hovertemplate: '<b>%{y}</b><br>Total Loss: %{x:,.0f} ha<extra></extra>',
@@ -489,15 +489,15 @@ const PresentState = ({ data }) => {
                 </thead>
                 <tbody>
                   {states.map((s, i) => {
-                    const score = Math.round(s.vulnerability_score * 100)
+                    const score = Math.round((s?.vulnerability_score ?? 0) * 100)
                     const priorityLabel = score >= 80 ? 'Critical' : score >= 60 ? 'High' : score >= 40 ? 'Moderate' : 'Low'
                     return (
-                    <tr key={s.name} className="border-b border-white/5 hover:bg-white/5">
+                    <tr key={s?.name || i} className="border-b border-white/5 hover:bg-white/5">
                       <td className="py-3 pr-2">
                         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${i < 3 ? 'bg-danger/20 text-danger' : 'bg-white/5 text-text-muted'}`}>{i + 1}</span>
                       </td>
-                      <td className="py-3 font-medium text-white">{s.name}</td>
-                      <td className="py-3 text-right text-xs font-mono" style={{ color: s.total_loss_ha > 50000 ? COLORS.red : COLORS.white }}>{fmtHa(s.total_loss_ha)}</td>
+                      <td className="py-3 font-medium text-white">{s?.name || '—'}</td>
+                      <td className="py-3 text-right text-xs font-mono" style={{ color: (s?.total_loss_ha ?? 0) > 50000 ? COLORS.red : COLORS.white }}>{fmtHa(s?.total_loss_ha ?? 0)}</td>
                       <td className="py-3 text-center">
                         <span className={`${badgeClass(priorityLabel)} text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide`}>{priorityLabel}</span>
                       </td>
