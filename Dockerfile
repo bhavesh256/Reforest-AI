@@ -1,30 +1,27 @@
 
-# ============================================================
-# STAGE 1: BUILD REACT/VITE FRONTEND
-# ============================================================
-
+# Stage 1: Build React/Vite frontend
 FROM node:20-alpine AS frontend-build
 
-WORKDIR /frontend
+WORKDIR /app
 
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+WORKDIR /app/frontend
+
 RUN npm ci
 
 COPY frontend/ ./
+
+# Vite writes to ../static, which is /app/static
 RUN npm run build
 
 
-# ============================================================
-# STAGE 2: RUN FLASK BACKEND
-# ============================================================
-
+# Stage 2: Run Flask backend
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=5000
 
-# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgomp1 \
@@ -33,24 +30,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Python dependencies
 COPY requirements.txt ./
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Backend source, models, outputs, and other required files
+# Copy backend and required runtime files
 COPY . .
 
-# Replace static assets with the newly built frontend
-COPY --from=frontend-build /frontend/dist/ /app/static/
+# Copy the built frontend to the Flask static directory
+COPY --from=frontend-build /app/static/ /app/static/
 
-# Default local port; Render supplies PORT at runtime
 EXPOSE 5000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-5000}/healthz" || exit 1
 
-# Production WSGI server
 CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 1 --threads 4 --timeout 120 app:app"]
